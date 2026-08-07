@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dub_synth — desk</title>
+<style>
+:root{
+  --bg:#eceae5; --panel:#fbfaf8; --panel-2:#f4f2ee; --sunk:#e2dfd8;
+  --line:#d6d2c8; --line-2:#c3beb1;
+  --ink:#1c1b19; --ink-2:#5f5c55; --ink-3:#918d84;
+  --accent:#1f5f8b; --hot:#c8553d; --ok:#4c8b5a; --warn:#c9922b;
+  --auto:#7a5cb0;
+  --r:4px; --fh:92px;          /* fader travel — the meter gradient is sized to it */
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--ink);
+  font:12px/1.35 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  display:grid; grid-template-rows:auto auto auto auto minmax(110px,1fr);
+  gap:7px; padding:8px; overflow:auto;
+}
+/* Two real budgets: ~900 CSS px of viewport on a 1080p panel at 100%, and
+   ~720 on the same panel at Windows' default 125% scale (which reports as
+   1536x864 and is the tighter of the two). The desk is built to the 720.
+ *
+ * Below either budget the page must SCROLL, not compress. A fixed-height grid
+ * will happily shrink an `auto` row past its content, and the mixer's strips
+ * sit inside a horizontal scroller whose min-content height is therefore zero
+ * — so without these the panels silently overlap instead of overflowing. */
+@media (max-width:1320px){ body{overflow:auto; height:auto; min-height:100%} }
+@media (max-height:712px){ body{height:auto; min-height:100vh; overflow-y:auto} }
+
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--r)}
+.hd{
+  display:flex; align-items:center; gap:8px; padding:3px 8px;
+  border-bottom:1px solid var(--line); background:var(--panel-2);
+  border-radius:var(--r) var(--r) 0 0;
+}
+.hd h2{font:600 9px/1.5 ui-sans-serif,sans-serif; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-2)}
+.hd .note{font:400 9px/1.5 var(--mono); color:var(--ink-3); margin-left:auto}
+.mono{font-family:var(--mono)}
+.dim{color:var(--ink-3)}
+
+/* ─────────────── transport ─────────────── */
+#transport{display:flex; align-items:center; gap:13px; padding:4px 9px}
+#play{
+  width:26px;height:26px;border:1px solid var(--line-2);border-radius:50%;
+  background:var(--panel-2); cursor:pointer; display:grid; place-items:center;
+  color:var(--ink); font-size:11px; flex:none;
+}
+#play[data-on="1"]{background:var(--ok); border-color:var(--ok); color:#fff}
+.wordmark{font:600 13px/1 ui-sans-serif,sans-serif; letter-spacing:-.01em}
+.wordmark small{display:block; font:400 8px/1.3 var(--mono); color:var(--ink-3); letter-spacing:.08em; margin-top:2px}
+.seg{display:flex; gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--r); overflow:hidden}
+.seg button{
+  border:0; background:var(--panel); padding:4px 9px; cursor:pointer;
+  font:500 10px/1.4 var(--mono); color:var(--ink-2);
+}
+.seg button[aria-pressed="true"]{background:var(--accent); color:#fff}
+.field{display:flex; flex-direction:column; gap:2px}
+.field label{font:600 8px/1 ui-sans-serif,sans-serif; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3)}
+.field .v{font:500 12px/1.15 var(--mono)}
+.field .v.edit{cursor:ns-resize; user-select:none}
+#now{margin-left:auto; display:flex; align-items:center; gap:12px}
+.badge{
+  font:600 8.5px/1 ui-sans-serif,sans-serif; letter-spacing:.13em; text-transform:uppercase;
+  padding:4px 8px; border-radius:2px; color:#fff; background:var(--ink-2);
+}
+#clock{font:500 17px/1 var(--mono); letter-spacing:-.02em}
+
+/* ─────────────── arc ribbon ─────────────── */
+#arcwrap{padding:0; display:flex; align-items:stretch}
+#arclbl{
+  flex:none; width:52px; display:flex; flex-direction:column; justify-content:center; gap:2px;
+  padding:0 8px; border-right:1px solid var(--line); background:var(--panel-2);
+  border-radius:var(--r) 0 0 var(--r);
+}
+#arclbl b{font:600 9px/1 ui-sans-serif,sans-serif; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-2)}
+#arclbl span{font:400 8px/1 var(--mono); color:var(--ink-3)}
+#arc{position:relative; height:34px; flex:1; display:flex; margin:6px 8px; cursor:pointer}
+.sec{
+  position:relative; border-right:1px solid rgba(255,255,255,.75); overflow:hidden;
+  display:flex; flex-direction:column; justify-content:space-between; padding:3px 4px; min-width:2px;
+}
+.sec:first-child{border-radius:2px 0 0 2px}
+.sec:last-child{border-right:0; border-radius:0 2px 2px 0}
+.sec b{font:600 8px/1 ui-sans-serif,sans-serif; letter-spacing:.09em; text-transform:uppercase; color:rgba(0,0,0,.66); white-space:nowrap}
+.sec u{font:400 7.5px/1 var(--mono); color:rgba(0,0,0,.4); text-decoration:none; white-space:nowrap}
+.sec .g{position:absolute; top:3px; right:4px; display:flex; gap:1.5px}
+.sec .g i{width:2.5px;height:2.5px;border-radius:50%;background:rgba(0,0,0,.28)}
+.sec:hover{filter:brightness(.94)}
+#head{position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--hot); pointer-events:none; box-shadow:0 0 0 1px rgba(255,255,255,.7)}
+#head::before{content:""; position:absolute; top:-3px; left:-3px; border:4px solid transparent; border-top-color:var(--hot)}
+
+/* ─────────────── mixer row ─────────────── */
+#mixrow{display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:9px; min-height:0}
+.scroller{overflow-x:auto; overflow-y:hidden}
+.strips{display:flex; gap:5px; padding:8px 9px}
+
+.strip{
+  flex:1 1 78px; min-width:68px; max-width:160px; display:flex; flex-direction:column; gap:4px;
+  background:var(--panel-2); border:1px solid var(--line); border-radius:3px;
+  padding:4px 4px 5px; position:relative; cursor:pointer;
+  border-top:3px solid var(--line);          /* the colour cap, folded into the border */
+}
+.strip[data-sel="1"]{border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent)}
+.strip[data-mute="1"]{opacity:.52}
+/* Name and level readout share one row — the readout no longer costs a row. */
+.strip .nm{
+  font:600 10px/1 ui-sans-serif,sans-serif; letter-spacing:.01em;
+  display:flex; align-items:baseline; gap:4px;
+}
+.strip .nm em{font-style:normal; margin-left:auto; font:500 8.5px/1 var(--mono); color:var(--ink-3)}
+.sendrow{display:flex; gap:1.5px; height:7px; align-items:flex-end}
+.sendrow s{flex:1; background:var(--sunk); border-radius:1px; height:2px; position:relative}
+.sendrow s b{position:absolute; inset:auto 0 0 0; border-radius:1px; display:block}
+
+/* The meter is the fader's own track, not a column beside it. That buys back
+   the meter's width AND lets the fader be wide enough to stay grabbable at
+   92 px of travel instead of 150. */
+.faderarea{flex:none; display:flex; justify-content:center; height:var(--fh); padding:1px 0}
+/* A strip widens on a big monitor, but the fader itself should not — past
+   ~46 px it stops reading as a fader and starts reading as a panel. */
+.fader{
+  width:100%; max-width:46px; background:var(--sunk); border:1px solid var(--line-2);
+  border-radius:2px; position:relative; cursor:ns-resize; touch-action:none; overflow:hidden;
+}
+/* The gradient is sized to the whole TRACK and pinned to its bottom, so a
+   colour means a level. Left to default it would rescale into the fill and
+   every meter would show red at its own tip regardless of how loud it is. */
+.fader .lv{
+  position:absolute; left:0; right:0; bottom:0; height:0%;
+  background:linear-gradient(0deg,var(--ok) 0%,var(--ok) 62%,var(--warn) 84%,var(--hot) 100%);
+  background-size:100% var(--fh); background-position:left bottom; background-repeat:no-repeat;
+  opacity:.32;
+}
+.fader .pk{position:absolute; left:0; right:0; height:1px; background:var(--ink); opacity:.35}
+/* The cap has to win against the meter behind it, so it is the one opaque,
+   hard-edged thing in the track. */
+.fader .cap2{
+  position:absolute; left:0; right:0; height:9px; margin-top:-4.5px;
+  background:linear-gradient(#fbfaf8,#d8d4ca); border-top:1px solid #8e8a80;
+  border-bottom:1px solid #8e8a80; box-shadow:0 2px 4px rgba(0,0,0,.22);
+}
+.fader .cap2::after{content:""; position:absolute; left:3px; right:3px; top:50%; margin-top:-1px; height:2px; background:var(--ink-2); border-radius:1px}
+.fader .u{position:absolute; left:0; right:0; height:1px; background:var(--line-2); opacity:.85}
+
+.pan{display:flex; align-items:center; gap:3px}
+.pantrack{flex:1; height:9px; background:var(--sunk); border:1px solid var(--line-2); border-radius:2px; position:relative; cursor:ew-resize; touch-action:none}
+.pantrack .mid{position:absolute; left:50%; top:1px; bottom:1px; width:1px; background:var(--line-2)}
+.pantrack .kn{position:absolute; top:-1px; bottom:-1px; width:6px; margin-left:-3px; background:linear-gradient(#fdfdfc,#e6e3dc); border:1px solid var(--line-2); border-radius:2px}
+.pan .pv{font:500 8px/1 var(--mono); color:var(--ink-3); width:20px; text-align:right}
+.ms{display:flex; gap:3px}
+.ms button{
+  flex:1; border:1px solid var(--line-2); background:var(--panel); border-radius:2px;
+  padding:3px 0; font:700 9px/1 ui-sans-serif,sans-serif; cursor:pointer; color:var(--ink-2);
+}
+.ms button[aria-pressed="true"].m{background:var(--hot); border-color:var(--hot); color:#fff}
+.ms button[aria-pressed="true"].s{background:var(--warn); border-color:var(--warn); color:#fff}
+
+/* returns + master */
+.rgroup{background:var(--sunk)}
+.rgroup .strips{padding:6px}
+.strip.ret{flex:none; width:64px; background:#f6f3ec}
+.strip.master{flex:none; width:96px; background:#eeeae1; border-color:var(--line-2)}
+.strip.master .nm{letter-spacing:.1em; text-transform:uppercase; font-size:9px}
+.trimrow{display:flex; justify-content:space-between; font:500 8.5px/1.35 var(--mono); color:var(--ink-2)}
+.trimrow em{font-style:normal; color:var(--ink-3)}
+.lock{font:500 7.5px/1.25 var(--mono); color:var(--ink-3); text-align:center; padding:2px; background:var(--sunk); border-radius:2px}
+
+/* ─────────────── bottom row ─────────────── */
+#botrow{display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:9px}
+
+/* send matrix */
+#matrix{padding:6px 8px; overflow:auto}
+table{border-collapse:collapse; width:100%; font:500 9.5px/1 var(--mono)}
+th{font:600 8px/1 ui-sans-serif,sans-serif; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-2); padding:0 0 3px; text-align:center}
+th.rowh{text-align:left; padding-right:6px; width:56px}
+td.rowh{
+  font:600 9px/1 ui-sans-serif,sans-serif; padding:0 6px 0 0; white-space:nowrap;
+  border-right:1px solid var(--line);
+}
+td.rowh i{display:inline-block; width:5px;height:5px;border-radius:50%; margin-right:4px}
+.cell{
+  height:16px; border:1px solid var(--line); border-radius:2px; background:var(--panel-2);
+  position:relative; cursor:ns-resize; touch-action:none; overflow:hidden;
+}
+td{padding:1px}
+.cell .cf{position:absolute; left:0; right:0; bottom:0}
+.cell .cn{position:absolute; inset:0; display:grid; place-items:center; font:500 8.5px/1 var(--mono); color:var(--ink-2)}
+.cell[data-off="1"] .cn{color:#c9c4b8}
+.cell[data-off="1"]{background:repeating-linear-gradient(135deg,var(--panel-2),var(--panel-2) 3px,#f0eee8 3px,#f0eee8 6px)}
+.cell:hover{border-color:var(--accent)}
+
+/* echo detail */
+#detail{display:flex; flex-direction:column}
+#dbody{padding:7px 8px; display:grid; grid-template-columns:auto 1fr; gap:9px; min-height:0; overflow:auto}
+.knobs{display:flex; gap:7px}
+.knobcell{display:flex; flex-direction:column; align-items:center; gap:3px; width:58px}
+.knobcell .kl{font:600 8px/1 ui-sans-serif,sans-serif; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3); text-align:center}
+.knob{width:44px;height:44px; position:relative; cursor:ns-resize; touch-action:none}
+.knob svg{display:block; width:100%; height:100%; overflow:visible}
+.knob .kv{
+  position:absolute; inset:0; display:grid; place-items:center;
+  font:500 10px/1 var(--mono); color:var(--ink); pointer-events:none;
+}
+.knobcell[data-auto="1"] .kl{color:var(--auto)}
+.tag{
+  font:700 7.5px/1 ui-sans-serif,sans-serif; letter-spacing:.1em; padding:2px 4px; border-radius:2px;
+  background:var(--sunk); color:var(--ink-3);
+}
+.tag.on{background:var(--auto); color:#fff}
+.tag.touch{background:var(--hot); color:#fff}
+
+.rates{display:flex; flex-direction:column; gap:5px}
+.rate{
+  background:var(--panel-2); border:1px solid var(--line); border-left:3px solid var(--line-2);
+  border-radius:3px; padding:4px 7px; display:flex; align-items:center; gap:7px;
+}
+.rate.grid{border-left-color:var(--accent)}
+.rate.free{border-left-color:var(--auto)}
+.rate.note{border-left-color:var(--ok)}
+.rate .rl{width:82px; flex:none}
+.rate .rl b{display:block; font:600 10px/1.3 ui-sans-serif,sans-serif}
+.rate .rl span{display:block; font:400 8.5px/1.3 var(--mono); color:var(--ink-3)}
+.chip{
+  border:1px solid var(--line-2); background:var(--panel); border-radius:2px; padding:3px 7px;
+  font:600 10px/1 var(--mono); cursor:pointer; color:var(--ink);
+}
+.chip:hover{border-color:var(--accent)}
+.slider{flex:1; height:16px; background:var(--sunk); border:1px solid var(--line-2); border-radius:2px; position:relative; cursor:ew-resize; touch-action:none; min-width:60px}
+.slider .sf{position:absolute; left:0; top:0; bottom:0; background:rgba(31,95,139,.22)}
+.slider .st{position:absolute; inset:0; display:grid; place-items:center; font:500 9px/1 var(--mono); pointer-events:none}
+.derived{font:500 11px/1 var(--mono); color:var(--ink); width:64px; text-align:right; flex:none}
+.wave{width:56px;height:18px;flex:none}
+#throw{
+  border:1px solid var(--hot); background:var(--panel); color:var(--hot); border-radius:2px;
+  padding:7px 12px; font:700 10px/1 ui-sans-serif,sans-serif; letter-spacing:.13em; cursor:pointer;
+}
+#throw:active,#throw[data-fire="1"]{background:var(--hot); color:#fff}
+#lanewrap{display:flex; flex-direction:column; min-height:0}
+#lane{flex:1; min-height:0; margin:4px 8px 6px; position:relative; overflow:hidden}
+#lane canvas{display:block; width:100%; height:100%}
+.ll{display:flex; gap:12px; margin-left:14px;
+  font:600 8.5px/1 ui-sans-serif,sans-serif; letter-spacing:.11em; text-transform:uppercase}
+.ll span{display:flex; align-items:center; gap:4px; color:var(--ink-3)}
+.ll i{width:11px;height:2px;border-radius:1px}
+.hint{font:400 8.5px/1.4 var(--mono); color:var(--ink-3); padding:0 8px 6px}
+.hint kbd{background:var(--sunk); border-radius:2px; padding:1px 4px; font-family:var(--mono)}
+</style>
+</head>
+<body>
+
+<!-- ══════════ transport ══════════ -->
+<header class="panel" id="transport">
+  <button id="play" data-on="1" title="play / pause">■</button>
+  <div class="wordmark">dub_synth<small>DESK — MOCKUP</small></div>
+
+  <div class="seg" role="group" aria-label="view">
+    <button aria-pressed="true">DESK</button>
+    <button aria-pressed="false">PLAN</button>
+    <button aria-pressed="false">METERS</button>
+  </div>
+
+  <div class="field"><label>seed</label><div class="v edit" data-num="seed">7</div></div>
+  <div class="field"><label>bpm</label><div class="v edit" data-num="bpm">125</div></div>
+  <div class="field"><label>key</label><div class="v">G minor</div></div>
+  <div class="field"><label>progression</label><div class="v">listing</div></div>
+  <div class="field"><label>pattern</label><div class="v">steppers</div></div>
+  <div class="field"><label>noise</label><div class="v">synth · static</div></div>
+
+  <div id="now">
+    <div class="field" style="text-align:right"><label>section 3 of ∞</label><div class="v" id="statelabel">second stab fills the gaps</div></div>
+    <span class="badge" id="statebadge">BUILD</span>
+    <div id="clock">02:50</div>
+  </div>
+</header>
+
+<!-- ══════════ arc ribbon ══════════ -->
+<section class="panel" id="arcwrap">
+  <div id="arclbl"><b>Arc</b><span>hold ·<br>jump</span></div>
+  <div id="arc"><div id="head"></div></div>
+</section>
+
+<!-- ══════════ mixer ══════════ -->
+<section id="mixrow">
+  <div class="panel" style="min-width:0">
+    <div class="hd"><h2>Channels</h2><span class="note">drag faders · click M/S · click a strip to load it below</span></div>
+    <div class="scroller"><div class="strips" id="chstrips"></div></div>
+  </div>
+
+  <div class="panel rgroup">
+    <div class="hd"><h2>Bus returns</h2></div>
+    <div class="scroller"><div class="strips" id="retstrips"></div></div>
+  </div>
+
+  <div class="panel">
+    <div class="hd"><h2>Master</h2></div>
+    <div class="strips" id="masterstrip"></div>
+  </div>
+</section>
+
+<!-- ══════════ matrix + detail ══════════ -->
+<section id="botrow">
+  <div class="panel" style="display:flex;flex-direction:column;min-height:0">
+    <div class="hd">
+      <h2>Send matrix</h2>
+      <span class="note">10 × 7 — hatched cells are wired and silent; drag any cell to open it</span>
+    </div>
+    <div id="matrix"></div>
+  </div>
+
+  <div class="panel" id="detail">
+    <div class="hd"><h2 id="dtitle">echoA</h2><span class="note" id="dsub">dotted 1/8 · 237 ms · stabA</span></div>
+    <div id="dbody">
+      <div class="knobs" id="dknobs"></div>
+      <div class="rates" id="drates"></div>
+    </div>
+    <div class="hint">
+      <kbd>drag</kbd> a violet knob to override its automation — it goes <b style="color:var(--hot)">TOUCH</b>,
+      the walk keeps running underneath, and release hands it back.
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ automation lane ══════════ -->
+<section class="panel" id="lanewrap">
+  <div class="hd">
+    <h2>Automation — <span id="lanebus">echoA</span> feedback</h2>
+    <div class="ll">
+      <span><i style="background:var(--auto)"></i>the walk</span>
+      <span><i style="background:var(--accent)"></i>at the bus</span>
+      <span><i style="background:var(--hot)"></i>hand on it</span>
+    </div>
+    <span class="note">last 24 s · ceiling 0.72 · the walk never stops, it is only overridden</span>
+  </div>
+  <div id="lane"><canvas id="trace"></canvas></div>
+</section>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════
+   State. Values are lifted straight from DUB_RIG so the mockup is
+   dimensionally honest — nothing here is plugged into audio.
+   ════════════════════════════════════════════════════════════════════ */
+const BPM = 125, BEAT = 60 / BPM, STEP = BEAT / 4, BAR = BEAT * 4;
+
+const BUSES = ["echoA","echoB","echoC","fdelay","spring","plate","shimmer"];
+
+const CH = [
+  {id:"kick",   c:"#c8553d", f:.72, p:0,    sends:{spring:.08}},
+  {id:"bass",   c:"#8e3b6b", f:.55, p:0,    sends:{}},
+  {id:"stabA",  c:"#1f5f8b", f:.34, p:-.15, sends:{echoA:.85, fdelay:.35, plate:.35}},
+  {id:"stabB",  c:"#3486ab", f:.26, p:.20,  sends:{echoB:.75, plate:.25}},
+  {id:"stabC",  c:"#58a7c4", f:.22, p:.05,  sends:{echoC:.90, shimmer:.30}},
+  {id:"hat",    c:"#d98c3f", f:.18, p:.35,  sends:{spring:.45}},
+  {id:"shaker", c:"#c9a227", f:.15, p:-.40, sends:{spring:.30}},
+  {id:"perc",   c:"#a8763e", f:.14, p:.55,  sends:{plate:.55, echoB:.40}},
+  {id:"pad",    c:"#6a4c93", f:.30, p:0,    sends:{plate:.50, shimmer:.35}},
+  {id:"noise",  c:"#7a8471", f:.08, p:-.20, sends:{}},
+];
+CH.forEach(c => { c.mute = false; c.solo = false; c.lv = 0; c.pk = 0; });
+
+const RET = [
+  {id:"echoA",   c:"#1f5f8b", f:.55, fb:.42, walk:[.28,.62], time:.237, lbl:"dotted 1/8 · 237 ms"},
+  {id:"echoB",   c:"#3486ab", f:.18, fb:.36, walk:[.20,.42], time:.120, lbl:"1/16 · 120 ms"},
+  {id:"echoC",   c:"#58a7c4", f:.42, fb:.52, walk:[.30,.66], time:.480, lbl:"time-based · 480 ms · warped"},
+  {id:"fdelay",  c:"#5b7fa6", f:.55, lbl:"3 bands · 160 / 900 / 3500 Hz"},
+  {id:"spring",  c:"#4c8b5a", f:.85, lbl:"decay 1.0 s · colour 2200 Hz"},
+  {id:"plate",   c:"#3f8f86", f:.30, lbl:"decay 3.4 s · pre-delay 90 ms"},
+  {id:"shimmer", c:"#6a4c93", f:.18, lbl:"decay 5.0 s · +12 st · fb 0.42"},
+];
+RET.forEach(r => { r.mute = false; r.lv = 0; r.pk = 0; });
+
+/* the real plan: node render.mjs --plan --seconds=600 --seed=7 */
+const PLAN = [
+  {s:"intro",      d:20,  g:10, l:"space before the palette"},
+  {s:"exposition", d:101, g:10, l:"the frame states itself"},
+  {s:"build",      d:98,  g:11, l:"second stab fills the gaps"},
+  {s:"climax",     d:39,  g:9,  l:"everything audible"},
+  {s:"dip",        d:23,  g:10, l:"presence pulled out from under it"},
+  {s:"climax",     d:29,  g:10, l:"everything audible"},
+  {s:"lull",       d:109, g:16, l:"after the climax"},
+  {s:"build",      d:43,  g:12, l:"second stab fills the gaps"},
+  {s:"climax",     d:45,  g:9,  l:"everything audible"},
+  {s:"outro",      d:95,  g:14, l:"pushed into the space"},
+];
+const SC = {intro:"#dfe6ea", exposition:"#cfe0e8", build:"#e8d9c2", climax:"#e9bfae", dip:"#dcd8e6", lull:"#d9e2dc", outro:"#e6e2da"};
+const TOTAL = PLAN.reduce((a,b) => a + b.d, 0);
+let t = 170, playing = true;
+
+/* which channels each state has audible — perform.js STATES */
+const STATES = {
+  intro:["pad","noise","stabC"],
+  exposition:["kick","bass","pad","noise","stabA"],
+  build:["kick","bass","pad","noise","stabA","stabB","hat"],
+  climax:["kick","bass","pad","noise","stabA","stabB","stabC","hat","shaker","perc"],
+  dip:["kick","bass","pad","noise","stabA","stabB"],
+  lull:["kick","noise","stabC"],
+  outro:["pad","noise","stabC"],
+};
+
+/* riddim.js step patterns, so the meters play the actual bar */
+const PAT = {
+  kick:[0,4,8,12], hat:[2,6,10,14], shaker:[1,3,5,7,9,11,13,15],
+  perc:[8,14], bass:[0,4,10], stabA:[2,10], stabB:[4,12], stabC:[6],
+};
+
+const fmt = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+const dB = v => v <= .0011 ? "-∞" : (20*Math.log10(v)).toFixed(1);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const taper = v => Math.pow(clamp(v,0,1), 1/1.8);        // fader travel
+const untaper = p => Math.pow(clamp(p,0,1), 1.8);
+
+/* ── generic drag: vertical (dy) or horizontal (dx), normalised ─────── */
+function drag(el, get, set, {axis="y", scale=160} = {}){
+  el.addEventListener("pointerdown", e => {
+    e.preventDefault(); el.setPointerCapture(e.pointerId);
+    const x0 = e.clientX, y0 = e.clientY, v0 = get();
+    const move = ev => {
+      const d = axis === "y" ? (y0 - ev.clientY) : (ev.clientX - x0);
+      set(v0 + d/scale, true);
+    };
+    const up = () => {
+      el.releasePointerCapture(e.pointerId);
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      set(get(), false);
+    };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+  });
+}
+
+/* ════════════════════ arc ribbon ════════════════════ */
+const arc = document.getElementById("arc");
+{
+  let acc = 0;
+  PLAN.forEach((p,i) => {
+    const d = document.createElement("div");
+    d.className = "sec";
+    d.style.flex = p.d;
+    d.style.background = SC[p.s];
+    d.title = `${i+1}. ${p.s} — ${p.d}s, ${p.g} gestures — ${p.l}`;
+    /* the time tick lives inside its own block rather than on a second row */
+    d.innerHTML = `<div class="g">${"<i></i>".repeat(Math.min(p.g,8))}</div><b>${p.s}</b><u>${fmt(acc)}</u>`;
+    const at = acc;
+    d.onclick = () => { t = at + 1; };
+    arc.appendChild(d);
+    acc += p.d;
+  });
+  arc.appendChild(document.getElementById("head"));
+}
+
+/* ════════════════════ channel strips ════════════════════ */
+let selected = "echoA";
+
+function strip(o, kind){
+  const el = document.createElement("div");
+  el.className = "strip" + (kind === "ret" ? " ret" : "");
+  el.dataset.id = o.id;
+  const sends = kind === "ch"
+    ? `<div class="sendrow">${BUSES.map(b => `<s title="${o.id} → ${b}"><b data-send="${b}" style="background:${o.c};height:${Math.round((o.sends[b]||0)*11)+1}px"></b></s>`).join("")}</div>`
+    : `<div class="lock" title="insert">${o.id.startsWith("echo") ? "ECHO" : o.id === "fdelay" ? "FILT DLY" : "CONVOLVE"}</div>`;
+
+  el.style.borderTopColor = o.c;
+  el.innerHTML = `
+    <div class="nm">${o.id}<em class="readout">${dB(o.f)}</em></div>
+    ${sends}
+    <div class="faderarea">
+      <div class="fader" title="resting level from DUB_RIG: ${o.f.toFixed(2)}">
+        <div class="lv"></div><div class="pk"></div>
+        <div class="u" style="bottom:${taper(o.f)*100}%"></div><div class="cap2"></div>
+      </div>
+    </div>
+    ${kind === "ch" ? `<div class="pan"><div class="pantrack"><div class="mid"></div><div class="kn"></div></div><div class="pv"></div></div>` : ``}
+    <div class="ms">
+      <button class="m" aria-pressed="false">M</button>
+      ${kind === "ch" ? `<button class="s" aria-pressed="false">S</button>` : `<button class="s" aria-pressed="false" title="solo the return">S</button>`}
+    </div>`;
+
+  const fader = el.querySelector(".fader"), cap = el.querySelector(".cap2"),
+        read = el.querySelector(".readout");
+  const paint = () => {
+    cap.style.bottom = taper(o.f) * 100 + "%";
+    read.textContent = dB(o.f);
+  };
+  drag(fader, () => taper(o.f), p => { o.f = untaper(clamp(p,0,1)); paint(); }, {scale:150});
+  paint();
+
+  if (kind === "ch") {
+    const pt = el.querySelector(".pantrack"), kn = el.querySelector(".kn"), pv = el.querySelector(".pv");
+    const pp = () => {
+      kn.style.left = ((o.p + 1) / 2 * 100) + "%";
+      pv.textContent = Math.abs(o.p) < .02 ? "C" : (o.p < 0 ? "L" : "R") + Math.round(Math.abs(o.p)*100);
+    };
+    drag(pt, () => o.p, v => { o.p = clamp(v,-1,1); pp(); }, {axis:"x", scale:70});
+    pp();
+  }
+
+  const mb = el.querySelector(".m"), sb = el.querySelector(".s");
+  mb.onclick = e => { e.stopPropagation(); o.mute = !o.mute; mb.setAttribute("aria-pressed", o.mute); el.dataset.mute = o.mute ? "1" : "0"; };
+  sb.onclick = e => { e.stopPropagation(); o.solo = !o.solo; sb.setAttribute("aria-pressed", o.solo); };
+
+  if (kind === "ret") el.onclick = () => select(o.id);
+  el.__o = o; el.__lv = el.querySelector(".lv"); el.__pk = el.querySelector(".pk");
+  return el;
+}
+
+CH.forEach(c  => document.getElementById("chstrips").appendChild(strip(c, "ch")));
+RET.forEach(r => document.getElementById("retstrips").appendChild(strip(r, "ret")));
+
+/* master */
+{
+  const m = {id:"master", c:"#4a463f", f:.526, mute:false, solo:false, lv:0, pk:0};
+  const el = strip(m, "ret");
+  el.classList.add("master"); el.classList.remove("ret");
+  el.querySelector(".lock").outerHTML =
+    `<div class="trimrow"><em>trim</em><span>0.526</span></div>
+     <div class="trimrow"><em>glue</em><span>-1.4 dB</span></div>
+     <div class="trimrow"><em>limiter</em><span>-0.8 dB</span></div>
+     <div class="lock">MEASURED<br>--headroom</div>`;
+  document.getElementById("masterstrip").appendChild(el);
+  window.__master = el;
+}
+
+/* ════════════════════ send matrix ════════════════════ */
+{
+  const t = document.createElement("table");
+  t.innerHTML = `<thead><tr><th class="rowh">channel</th>${BUSES.map(b=>`<th>${b}</th>`).join("")}</tr></thead>`;
+  const tb = document.createElement("tbody");
+  CH.forEach(c => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="rowh"><i style="background:${c.c}"></i>${c.id}</td>`;
+    BUSES.forEach(b => {
+      const td = document.createElement("td");
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.innerHTML = `<div class="cf" style="background:${c.c}22"></div><span class="cn"></span>`;
+      const cf = cell.querySelector(".cf"), cn = cell.querySelector(".cn");
+      const paint = () => {
+        const v = c.sends[b] || 0;
+        cell.dataset.off = v <= .001 ? "1" : "0";
+        cf.style.height = Math.round(v*100) + "%";
+        cf.style.background = c.c + "33";
+        cn.textContent = v <= .001 ? "·" : v.toFixed(2);
+        const dot = document.querySelector(`.strip[data-id="${c.id}"] b[data-send="${b}"]`);
+        if (dot) dot.style.height = Math.round(v*11)+1 + "px";
+      };
+      drag(cell, () => c.sends[b] || 0, v => { c.sends[b] = clamp(v,0,1); paint(); }, {scale:90});
+      cell.addEventListener("dblclick", () => { c.sends[b] = 0; paint(); });
+      paint();
+      td.appendChild(cell); tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+  document.getElementById("matrix").appendChild(t);
+}
+
+/* ════════════════════ knobs ════════════════════ */
+const A0 = -135, A1 = 135;
+function knob(label, o, {min=0, max=1, fmt=v=>v.toFixed(2), auto=false, unit=""}={}){
+  const cell = document.createElement("div");
+  cell.className = "knobcell";
+  if (auto) cell.dataset.auto = "1";
+  cell.innerHTML = `
+    <div class="knob">
+      <svg width="52" height="52" viewBox="0 0 52 52">
+        <circle cx="26" cy="26" r="21" fill="none" stroke="var(--sunk)" stroke-width="5"/>
+        <path class="ghost" fill="none" stroke="var(--auto)" stroke-width="5" stroke-linecap="round" opacity="${auto?.32:0}"/>
+        <path class="val" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="26" cy="26" r="15" fill="var(--panel)" stroke="var(--line-2)"/>
+        <line class="ptr" x1="26" y1="26" x2="26" y2="13" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div class="kv"></div>
+    </div>
+    <div class="kl">${label}</div>
+    ${auto ? `<span class="tag on">AUTO</span>` : ``}`;
+
+  const norm = v => (v - min) / (max - min);
+  const ang  = n => A0 + n * (A1 - A0);
+  const arcPath = (n0, n1) => {
+    const r = 21, rad = a => (a - 90) * Math.PI/180;
+    const a0 = rad(ang(n0)), a1 = rad(ang(n1));
+    const large = Math.abs(ang(n1) - ang(n0)) > 180 ? 1 : 0;
+    return `M ${26+r*Math.cos(a0)} ${26+r*Math.sin(a0)} A ${r} ${r} 0 ${large} 1 ${26+r*Math.cos(a1)} ${26+r*Math.sin(a1)}`;
+  };
+  const val = cell.querySelector(".val"), ghost = cell.querySelector(".ghost"),
+        ptr = cell.querySelector(".ptr"), kv = cell.querySelector(".kv"),
+        tag = cell.querySelector(".tag");
+
+  cell.paint = (v, gv) => {
+    const n = clamp(norm(v), 0, 1);
+    val.setAttribute("d", arcPath(0.0001, Math.max(n, .0002)));
+    ptr.setAttribute("transform", `rotate(${ang(n)} 26 26)`);
+    kv.textContent = fmt(v) + unit;
+    if (auto && gv != null) ghost.setAttribute("d", arcPath(0.0001, Math.max(clamp(norm(gv),0,1), .0002)));
+  };
+  cell.touched = false;
+  drag(cell.querySelector(".knob"),
+    () => norm(o.get()),
+    (n, live) => {
+      o.set(min + clamp(n,0,1)*(max-min));
+      if (auto && tag) {
+        cell.touched = live;
+        tag.className = "tag " + (live ? "touch" : "on");
+        tag.textContent = live ? "TOUCH" : "AUTO";
+        if (!live) o.release && o.release();
+      }
+    }, {scale:130});
+  cell.paint(o.get(), o.get());
+  return cell;
+}
+
+/* ════════════════════ detail panel ════════════════════ */
+const dknobs = document.getElementById("dknobs"), drates = document.getElementById("drates");
+let fbKnob = null, cur = RET[0];
+
+/* the automation the panel is showing: the §2 walk and the §2 drift */
+const WALK_DETUNE = .0224;
+const WALK_RATE = (2 / BEAT) * (1 + WALK_DETUNE);   // 4.26 Hz at 125 BPM
+const DRIFT_RATE = .11;
+let walkNow = .45, walkFrom = .45, walkTo = .45, walkT = 0, override = null, throwEnv = 0;
+
+function select(id){
+  cur = RET.find(r => r.id === id);
+  selected = id;
+  document.querySelectorAll(".strip").forEach(s => s.dataset.sel = s.dataset.id === id ? "1" : "0");
+  document.getElementById("dtitle").textContent = id;
+  document.getElementById("lanebus").textContent = id;
+  const feeder = CH.filter(c => (c.sends[id]||0) > .001).map(c => c.id).join(", ") || "no channel feeding it";
+  document.getElementById("dsub").textContent = cur.lbl + " · ← " + feeder;
+  build();
+}
+
+function build(){
+  dknobs.innerHTML = ""; drates.innerHTML = ""; fbKnob = null;
+  const isEcho = cur.id.startsWith("echo");
+
+  dknobs.appendChild(knob("return", {get:()=>cur.f, set:v=>cur.f=v}, {fmt:v=>v.toFixed(2)}));
+
+  if (isEcho) {
+    fbKnob = knob("feedback", {
+      get: () => override ?? walkNow,
+      set: v => override = v,
+      release: () => { override = null; },
+    }, {min:0, max:.72, auto:true});
+    dknobs.appendChild(fbKnob);
+    dknobs.appendChild(knob("time ms", {get:()=>cur.time, set:v=>cur.time=v}, {min:.02, max:1.2, fmt:v=>Math.round(v*1000)}));
+    dknobs.appendChild(knob("tone hz", {get:()=>cur.lpf ?? .5, set:v=>cur.lpf=v}, {fmt:v=>Math.round(500+v*4500), auto:true}));
+    dknobs.appendChild(knob("sat", {get:()=>cur.sat ?? .35, set:v=>cur.sat=v}));
+  } else {
+    dknobs.appendChild(knob("decay", {get:()=>cur.dec ?? .4, set:v=>cur.dec=v}, {min:.1, max:8, fmt:v=>v.toFixed(1), unit:"s"}));
+    dknobs.appendChild(knob("pre-dly", {get:()=>cur.pre ?? .09, set:v=>cur.pre=v}, {min:0, max:.3, fmt:v=>Math.round(v*1000), unit:"ms"}));
+    dknobs.appendChild(knob("width", {get:()=>cur.w ?? .8, set:v=>cur.w=v}));
+  }
+
+  /* Three rate controls, three shapes — the control teaches which kind of
+     motion it is. Grid-anchored+detuned, free-running, plain note division. */
+  drates.innerHTML = `
+    <div class="rate grid">
+      <div class="rl"><b>feedback walk</b><span>random · §2</span></div>
+      <button class="chip">1/8</button>
+      <div class="slider" id="detune"><div class="sf" style="width:52%"></div><div class="st">+2.24%</div></div>
+      <svg class="wave" viewBox="0 0 56 18"><polyline fill="none" stroke="var(--accent)" stroke-width="1.4"
+        points="0,12 6,5 12,14 18,7 24,13 30,4 36,11 42,15 48,6 56,10"/></svg>
+      <div class="derived">4.26 Hz</div>
+    </div>
+
+    <div class="rate free">
+      <div class="rl"><b>tone drift</b><span>sine · unsynced</span></div>
+      <div class="slider" id="period"><div class="sf" style="width:41%"></div><div class="st">9.09 s</div></div>
+      <svg class="wave" viewBox="0 0 56 18"><path fill="none" stroke="var(--auto)" stroke-width="1.4"
+        d="M0,9 C9,-1 19,19 28,9 C37,-1 47,19 56,9"/></svg>
+      <div class="derived">0.11 Hz</div>
+    </div>
+
+    <div class="rate note">
+      <div class="rl"><b>time warp</b><span>random · beat-synced</span></div>
+      <button class="chip">1/4</button>
+      <div class="slider" id="depth"><div class="sf" style="width:62%"></div><div class="st">40–80%</div></div>
+      <svg class="wave" viewBox="0 0 56 18"><polyline fill="none" stroke="var(--ok)" stroke-width="1.4"
+        points="0,13 14,13 14,5 28,5 28,14 42,14 42,7 56,7"/></svg>
+      <div class="derived">2.08 Hz</div>
+    </div>
+
+    <div style="display:flex;gap:8px;align-items:center;margin-top:2px">
+      <button id="throw">THROW</button>
+      <span class="dim mono" style="font-size:9.5px">peak 0.92 · rise 0.15 s · hold 2.4 s · fall 1.8 s</span>
+    </div>`;
+
+  const th = document.getElementById("throw");
+  if (th) th.onclick = () => { throwEnv = 1; th.dataset.fire = "1"; setTimeout(() => th.dataset.fire = "0", 160); };
+
+  /* the three sliders are live but decorative */
+  [["detune", v => "+" + (v*8).toFixed(2) + "%"],
+   ["period", v => (2 + v*18).toFixed(2) + " s"],
+   ["depth",  v => Math.round(20+v*40) + "–" + Math.round(60+v*40) + "%"]].forEach(([id, f]) => {
+    const el = document.getElementById(id); if (!el) return;
+    const sf = el.querySelector(".sf"), st = el.querySelector(".st");
+    let v = parseFloat(sf.style.width)/100;
+    drag(el, () => v, nv => { v = clamp(nv,0,1); sf.style.width = v*100+"%"; st.textContent = f(v); }, {axis:"x", scale:180});
+  });
+}
+
+CH.forEach(c => {
+  const el = document.querySelector(`.strip[data-id="${c.id}"]`);
+  el.addEventListener("click", () => {
+    const first = BUSES.find(b => (c.sends[b]||0) > .001);
+    if (first) select(first);
+  });
+});
+select("echoA");
+
+/* ════════════════════ the clock ════════════════════ */
+const head = document.getElementById("head"), clock = document.getElementById("clock"),
+      badge = document.getElementById("statebadge"), slab = document.getElementById("statelabel");
+const play = document.getElementById("play");
+play.onclick = () => { playing = !playing; play.dataset.on = playing ? "1" : "0"; play.textContent = playing ? "■" : "▶"; };
+
+/* ── automation lane: the walk, the output, and where a hand took over ── */
+const cv = document.getElementById("trace"), cx = cv.getContext("2d");
+const HIST = [], SPAN = 24;                 // seconds shown
+let acc2 = 0;
+function trace(dt, a, s, held){
+  const keep = Math.round(SPAN * 40);
+  /* seed a full window so the lane reads as running, not as booting */
+  if (!HIST.length) {
+    let f = a, tv = a, k = 0;
+    for (let i = 0; i < keep; i++) {
+      k += (1/40) * WALK_RATE;
+      if (k >= 1) { k %= 1; f = tv; tv = cur.walk ? cur.walk[0] + rnd()*(cur.walk[1]-cur.walk[0]) : .45; }
+      const v = f + (tv - f) * k;
+      HIST.push([v, v, false]);
+    }
+  }
+  acc2 += dt;
+  if (acc2 >= 1/40) { acc2 = 0; HIST.push([a, s, held]); }
+  const w = cv.clientWidth, h = cv.clientHeight, dpr = devicePixelRatio || 1;
+  if (!w || !h) return;
+  while (HIST.length > keep) HIST.shift();
+  if (cv.width !== w*dpr || cv.height !== h*dpr) { cv.width = w*dpr; cv.height = h*dpr; }
+  cx.setTransform(dpr,0,0,dpr,0,0);
+  cx.clearRect(0,0,w,h);
+
+  const pad = 16, y = v => h - pad - (v/.72)*(h - pad - 14);
+  cx.strokeStyle = "#d6d2c8"; cx.lineWidth = 1;
+  [0,.25,.5,.72].forEach(g => { cx.beginPath(); cx.moveTo(0, y(g)+.5); cx.lineTo(w, y(g)+.5); cx.stroke(); });
+
+  const px = i => (i / (keep-1)) * w;
+  const line = (idx, col, wid) => {
+    cx.beginPath(); cx.strokeStyle = col; cx.lineWidth = wid; cx.lineJoin = "round";
+    HIST.forEach((p,i) => i ? cx.lineTo(px(i), y(p[idx])) : cx.moveTo(px(i), y(p[idx])));
+    cx.stroke();
+  };
+  line(0, "rgba(122,92,176,.55)", 1.4);        // the walk, always running
+  line(1, "#1f5f8b", 1.8);                     // what the bus actually gets
+
+  /* red where a hand was on it */
+  cx.beginPath(); cx.strokeStyle = "#c8553d"; cx.lineWidth = 2.4; let pen = false;
+  HIST.forEach((p,i) => { if (p[2]) { pen ? cx.lineTo(px(i), y(p[1])) : cx.moveTo(px(i), y(p[1])); pen = true; } else pen = false; });
+  cx.stroke();
+}
+
+/* deterministic-looking noise so the mockup reads the same on every load */
+let sd = 20240807;
+const rnd = () => (sd = (sd * 1664525 + 1013904223) >>> 0) / 4294967296;
+
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (playing) t = (t + dt) % TOTAL;
+
+  /* playhead + section */
+  let acc = 0, idx = 0;
+  for (let i = 0; i < PLAN.length; i++) { if (t >= acc + PLAN[i].d) acc += PLAN[i].d; else { idx = i; break; } }
+  head.style.left = (t / TOTAL * 100) + "%";
+  clock.textContent = fmt(t);
+  badge.textContent = PLAN[idx].s.toUpperCase();
+  badge.style.background = {climax:"var(--hot)", build:"var(--warn)", dip:"var(--auto)", lull:"var(--ink-2)"}[PLAN[idx].s] || "var(--ink-2)";
+  slab.textContent = PLAN[idx].l;
+  const live = new Set(STATES[PLAN[idx].s] || []);
+
+  /* the §2 feedback walk, stepping at WALK_RATE and gliding */
+  walkT += dt * WALK_RATE;
+  if (walkT >= 1) { walkT %= 1; walkFrom = walkTo; walkTo = cur.walk ? cur.walk[0] + rnd()*(cur.walk[1]-cur.walk[0]) : .45; }
+  walkNow = walkFrom + (walkTo - walkFrom) * walkT;
+  throwEnv = Math.max(0, throwEnv - dt*.5);
+  const shown = (override ?? walkNow) + throwEnv * (.72 - walkNow);
+  if (fbKnob) fbKnob.paint(shown, walkNow);
+  trace(dt, walkNow, shown, override != null);
+
+  /* meters play the actual riddim */
+  const inBar = (t % BAR) / STEP;
+  document.querySelectorAll(".strip").forEach(el => {
+    const o = el.__o; if (!o) return;
+    let target = 0;
+    if (o.id === "master") target = .62 + .18*Math.sin(t*3.1);
+    else if (RET.includes(o)) target = o.f * (.5 + .4*Math.abs(Math.sin(t*(1+BUSES.indexOf(o.id)*.37))));
+    else if (live.has(o.id) && !o.mute) {
+      const hits = PAT[o.id];
+      if (!hits) target = o.f * .8;                                   // pad / noise hold
+      else { const since = Math.min(...hits.map(h => (inBar - h + 16) % 16)); target = o.f * Math.exp(-since*.9) * 1.1; }
+    }
+    o.lv += (Math.min(1, target) - o.lv) * (target > o.lv ? .55 : .09);
+    o.pk = Math.max(o.pk - dt*.35, o.lv);
+    el.__lv.style.height = (o.lv*100) + "%";
+    el.__pk.style.bottom = (o.pk*100) + "%";
+    if (!RET.includes(o) && o.id !== "master") el.style.opacity = o.mute ? .52 : (live.has(o.id) ? 1 : .68);
+  });
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
