@@ -1,0 +1,19 @@
+{
+  "name": "dub_synth",
+  "version": "0.1.0",
+  "description": "An endless dub techno engine: a mixer you perform, built to a measured specification of the genre.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "render": "node render.mjs",
+    "plan": "node render.mjs --plan",
+    "headroom": "node render.mjs --headroom",
+    "stems": "node stems.mjs",
+    "scan-samples": "node scan_samples.mjs",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "devDependencies": {
+    "node-web-audio-api": "^2.0.0"
+  }
+}

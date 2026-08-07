@@ -1,0 +1,358 @@
+{
+  "source": "kocer_2023_dub_techno_orphic.pdf",
+  "pages": 302,
+  "sections": [
+    {
+      "num": "1",
+      "title": "INTRODUCTION",
+      "layer": "prose",
+      "printed_start": 1,
+      "pdf_start": 31,
+      "pdf_end": 38
+    },
+    {
+      "num": "2",
+      "title": "METHODOLOGY",
+      "layer": "prose",
+      "printed_start": 9,
+      "pdf_start": 39,
+      "pdf_end": 42
+    },
+    {
+      "num": "3",
+      "title": "LITERATURE REVIEW",
+      "layer": "prose",
+      "printed_start": 13,
+      "pdf_start": 43,
+      "pdf_end": 46
+    },
+    {
+      "num": "4",
+      "title": "ORPHIC EXPERIENCE: A NEW WAY TO ENGAGE WITH SOUND",
+      "layer": "prose",
+      "printed_start": 17,
+      "pdf_start": 47,
+      "pdf_end": 47
+    },
+    {
+      "num": "4.1",
+      "title": "Orphic Media",
+      "layer": "prose",
+      "printed_start": 17,
+      "pdf_start": 47,
+      "pdf_end": 48
+    },
+    {
+      "num": "4.1.1",
+      "title": "Abstract space and milieu",
+      "layer": "prose",
+      "printed_start": 19,
+      "pdf_start": 49,
+      "pdf_end": 51
+    },
+    {
+      "num": "4.1.2",
+      "title": "Orpheus and the Sirens",
+      "layer": "prose",
+      "printed_start": 22,
+      "pdf_start": 52,
+      "pdf_end": 53
+    },
+    {
+      "num": "4.2",
+      "title": "An Approach to Orphic Experience",
+      "layer": "prose",
+      "printed_start": 24,
+      "pdf_start": 54,
+      "pdf_end": 56
+    },
+    {
+      "num": "5",
+      "title": "ECHOES OF THE PAST: THE HISTORY AND EVOLUTION OF DUB",
+      "layer": "prose",
+      "printed_start": 27,
+      "pdf_start": 57,
+      "pdf_end": 60
+    },
+    {
+      "num": "5.1",
+      "title": "The Sound System Culture of Dub Music",
+      "layer": "mixed",
+      "printed_start": 31,
+      "pdf_start": 61,
+      "pdf_end": 66
+    },
+    {
+      "num": "5.2",
+      "title": "Exploring the Production Foundations",
+      "layer": "mixed",
+      "printed_start": 37,
+      "pdf_start": 67,
+      "pdf_end": 69
+    },
+    {
+      "num": "5.2.1",
+      "title": "The riddim",
+      "layer": "technical",
+      "printed_start": 40,
+      "pdf_start": 70,
+      "pdf_end": 76
+    },
+    {
+      "num": "5.2.2",
+      "title": "Fundamental deconstruction of the dub echo",
+      "layer": "technical",
+      "printed_start": 47,
+      "pdf_start": 77,
+      "pdf_end": 77
+    },
+    {
+      "num": "5.2.2.1",
+      "title": "The technical aspect",
+      "layer": "technical",
+      "printed_start": 48,
+      "pdf_start": 78,
+      "pdf_end": 87
+    },
+    {
+      "num": "5.2.2.2",
+      "title": "The musical aspect",
+      "layer": "technical",
+      "printed_start": 58,
+      "pdf_start": 88,
+      "pdf_end": 98
+    },
+    {
+      "num": "6",
+      "title": "PIONEERING THE FUTURE: THE BIRTH AND GROWTH OF TECHNO",
+      "layer": "prose",
+      "printed_start": 69,
+      "pdf_start": 99,
+      "pdf_end": 99
+    },
+    {
+      "num": "6.1",
+      "title": "A Concise Approach to the Style",
+      "layer": "prose",
+      "printed_start": 69,
+      "pdf_start": 99,
+      "pdf_end": 101
+    },
+    {
+      "num": "6.2",
+      "title": "From Studio to the Dancefloor",
+      "layer": "prose",
+      "printed_start": 72,
+      "pdf_start": 102,
+      "pdf_end": 120
+    },
+    {
+      "num": "6.2.1",
+      "title": "Detroit techno",
+      "layer": "prose",
+      "printed_start": 91,
+      "pdf_start": 121,
+      "pdf_end": 122
+    },
+    {
+      "num": "6.2.1.1",
+      "title": "Model 500's No UFOs",
+      "layer": "technical",
+      "printed_start": 93,
+      "pdf_start": 123,
+      "pdf_end": 129
+    },
+    {
+      "num": "6.2.1.2",
+      "title": "Derrick May's Strings of Life",
+      "layer": "technical",
+      "printed_start": 100,
+      "pdf_start": 130,
+      "pdf_end": 135
+    },
+    {
+      "num": "6.2.2",
+      "title": "Acid techno",
+      "layer": "prose",
+      "printed_start": 106,
+      "pdf_start": 136,
+      "pdf_end": 137
+    },
+    {
+      "num": "6.2.2.1",
+      "title": "Plastikman's Plasticine",
+      "layer": "technical",
+      "printed_start": 108,
+      "pdf_start": 138,
+      "pdf_end": 144
+    },
+    {
+      "num": "6.2.2.2",
+      "title": "Emmanuel Top's Acid Phase",
+      "layer": "technical",
+      "printed_start": 115,
+      "pdf_start": 145,
+      "pdf_end": 150
+    },
+    {
+      "num": "6.2.3",
+      "title": "Minimal techno",
+      "layer": "prose",
+      "printed_start": 121,
+      "pdf_start": 151,
+      "pdf_end": 155
+    },
+    {
+      "num": "6.2.3.1",
+      "title": "Robert Hood's Minus",
+      "layer": "technical",
+      "printed_start": 126,
+      "pdf_start": 156,
+      "pdf_end": 164
+    },
+    {
+      "num": "6.2.3.2",
+      "title": "Daniel Bell's Baby Judy",
+      "layer": "technical",
+      "printed_start": 135,
+      "pdf_start": 165,
+      "pdf_end": 172
+    },
+    {
+      "num": "7",
+      "title": "THE FUSION: A BRIEF HISTORY AND ANALYSIS OF DUB TECHNO",
+      "layer": "prose",
+      "printed_start": 143,
+      "pdf_start": 173,
+      "pdf_end": 173
+    },
+    {
+      "num": "7.1",
+      "title": "The Invention Phase",
+      "layer": "prose",
+      "printed_start": 143,
+      "pdf_start": 173,
+      "pdf_end": 177
+    },
+    {
+      "num": "7.2",
+      "title": "The Sound",
+      "layer": "mixed",
+      "printed_start": 148,
+      "pdf_start": 178,
+      "pdf_end": 185
+    },
+    {
+      "num": "7.2.1",
+      "title": "A hauntological approach to noise",
+      "layer": "mixed",
+      "printed_start": 156,
+      "pdf_start": 186,
+      "pdf_end": 193
+    },
+    {
+      "num": "7.3",
+      "title": "The Right Room Issue",
+      "layer": "prose",
+      "printed_start": 164,
+      "pdf_start": 194,
+      "pdf_end": 200
+    },
+    {
+      "num": "7.3.1",
+      "title": "Rhythm & Sound's Aerial",
+      "layer": "technical",
+      "printed_start": 171,
+      "pdf_start": 201,
+      "pdf_end": 207
+    },
+    {
+      "num": "7.3.2",
+      "title": "Basic Channel's Phylyps Trak",
+      "layer": "technical",
+      "printed_start": 178,
+      "pdf_start": 208,
+      "pdf_end": 215
+    },
+    {
+      "num": "7.3.3",
+      "title": "Yagya's The Salt On Her Cheeks",
+      "layer": "technical",
+      "printed_start": 186,
+      "pdf_start": 216,
+      "pdf_end": 223
+    },
+    {
+      "num": "7.3.4",
+      "title": "Overcast Sound's Listing, Sinking",
+      "layer": "technical",
+      "printed_start": 194,
+      "pdf_start": 224,
+      "pdf_end": 231
+    },
+    {
+      "num": "7.3.5",
+      "title": "Substance & Vainqueur's Resonance",
+      "layer": "technical",
+      "printed_start": 202,
+      "pdf_start": 232,
+      "pdf_end": 240
+    },
+    {
+      "num": "7.3.6",
+      "title": "Topdown Dialectic's B4",
+      "layer": "technical",
+      "printed_start": 211,
+      "pdf_start": 241,
+      "pdf_end": 252
+    },
+    {
+      "num": "8",
+      "title": "DISCUSSION",
+      "layer": "prose",
+      "printed_start": 223,
+      "pdf_start": 253,
+      "pdf_end": 274
+    },
+    {
+      "num": "9",
+      "title": "CONCLUSION",
+      "layer": "prose",
+      "printed_start": 245,
+      "pdf_start": 275,
+      "pdf_end": 278
+    },
+    {
+      "num": "REF",
+      "title": "REFERENCES",
+      "layer": "prose",
+      "printed_start": 249,
+      "pdf_start": 279,
+      "pdf_end": 288
+    },
+    {
+      "num": "APP",
+      "title": "APPENDICES",
+      "layer": "prose",
+      "printed_start": 259,
+      "pdf_start": 289,
+      "pdf_end": 290
+    },
+    {
+      "num": "APP.A.1",
+      "title": "APPENDIX A.1",
+      "layer": "prose",
+      "printed_start": 261,
+      "pdf_start": 291,
+      "pdf_end": 300
+    },
+    {
+      "num": "CV",
+      "title": "CURRICULUM VITAE",
+      "layer": "prose",
+      "printed_start": 271,
+      "pdf_start": 301,
+      "pdf_end": 302
+    }
+  ]
+}
