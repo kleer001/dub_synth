@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dub_synth — desk</title>
+<style>
+:root{
+  --bg:#eceae5; --panel:#fbfaf8; --panel-2:#f4f2ee; --sunk:#e2dfd8;
+  --line:#d6d2c8; --line-2:#c3beb1;
+  --ink:#1c1b19; --ink-2:#5f5c55; --ink-3:#918d84;
+  --accent:#1f5f8b; --hot:#c8553d; --ok:#4c8b5a; --warn:#c9922b;
+  --auto:#7a5cb0;
+  --r:4px; --fh:92px;          /* fader travel — the meter gradient is sized to it */
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--ink);
+  font:12px/1.35 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  display:grid; grid-template-rows:auto auto auto minmax(0,1fr);
+  gap:7px; padding:8px; overflow:auto;
+}
+/* Two real budgets: ~900 CSS px of viewport on a 1080p panel at 100%, and
+   ~720 on the same panel at Windows' default 125% scale (which reports as
+   1536x864 and is the tighter of the two). The desk is built to the 720.
+ *
+ * Below either budget the page must SCROLL, not compress. A fixed-height grid
+ * will happily shrink an `auto` row past its content, and the mixer's strips
+ * sit inside a horizontal scroller whose min-content height is therefore zero
+ * — so without these the panels silently overlap instead of overflowing. */
+@media (max-width:1320px){ body{overflow:auto; height:auto; min-height:100%} }
+@media (max-height:712px){ body{height:auto; min-height:100vh; overflow-y:auto} }
+
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--r)}
+.hd{
+  display:flex; align-items:center; gap:8px; padding:3px 8px;
+  border-bottom:1px solid var(--line); background:var(--panel-2);
+  border-radius:var(--r) var(--r) 0 0;
+}
+.hd h2{font:600 9px/1.5 ui-sans-serif,sans-serif; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-2)}
+.hd .note{font:400 9px/1.5 var(--mono); color:var(--ink-3); margin-left:auto}
+.mono{font-family:var(--mono)}
+.dim{color:var(--ink-3)}
+
+/* ─────────────── transport ─────────────── */
+#transport{display:flex; align-items:center; gap:13px; padding:4px 9px}
+#play{
+  width:26px;height:26px;border:1px solid var(--line-2);border-radius:50%;
+  background:var(--panel-2); cursor:pointer; display:grid; place-items:center;
+  color:var(--ink); font-size:11px; flex:none;
+}
+#play[data-on="1"]{background:var(--ok); border-color:var(--ok); color:#fff}
+.wordmark{font:600 13px/1 ui-sans-serif,sans-serif; letter-spacing:-.01em}
+.wordmark small{display:block; font:400 8px/1.3 var(--mono); color:var(--ink-3); letter-spacing:.08em; margin-top:2px}
+.seg{display:flex; gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--r); overflow:hidden}
+.seg button{
+  border:0; background:var(--panel); padding:4px 9px; cursor:pointer;
+  font:500 10px/1.4 var(--mono); color:var(--ink-2);
+}
+.seg button[aria-pressed="true"]{background:var(--accent); color:#fff}
+.field{display:flex; flex-direction:column; gap:2px}
+.field label{font:600 8px/1 ui-sans-serif,sans-serif; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3)}
+.field .v{font:500 12px/1.15 var(--mono)}
+.field .v.edit{cursor:ns-resize; user-select:none}
+#now{margin-left:auto; display:flex; align-items:center; gap:12px}
+.badge{
+  font:600 8.5px/1 ui-sans-serif,sans-serif; letter-spacing:.13em; text-transform:uppercase;
+  padding:4px 8px; border-radius:2px; color:#fff; background:var(--ink-2);
+}
+#clock{font:500 17px/1 var(--mono); letter-spacing:-.02em}
+
+/* ─────────────── arc ribbon ─────────────── */
+#arcwrap{padding:0; display:flex; align-items:stretch}
+#arclbl{
+  flex:none; width:52px; display:flex; flex-direction:column; justify-content:center; gap:2px;
+  padding:0 8px; border-right:1px solid var(--line); background:var(--panel-2);
+  border-radius:var(--r) 0 0 var(--r);
+}
+#arclbl b{font:600 9px/1 ui-sans-serif,sans-serif; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-2)}
+#arclbl span{font:400 8px/1 var(--mono); color:var(--ink-3)}
+#arc{position:relative; height:34px; flex:1; display:flex; margin:6px 8px; cursor:pointer}
+.sec{
+  position:relative; border-right:1px solid rgba(255,255,255,.75); overflow:hidden;
+  display:flex; flex-direction:column; justify-content:space-between; padding:3px 4px; min-width:2px;
+}
+.sec:first-child{border-radius:2px 0 0 2px}
+.sec:last-child{border-right:0; border-radius:0 2px 2px 0}
+.sec b{font:600 8px/1 ui-sans-serif,sans-serif; letter-spacing:.09em; text-transform:uppercase; color:rgba(0,0,0,.66); white-space:nowrap}
+.sec u{font:400 7.5px/1 var(--mono); color:rgba(0,0,0,.4); text-decoration:none; white-space:nowrap}
+.sec .g{position:absolute; top:3px; right:4px; display:flex; gap:1.5px}
+.sec .g i{width:2.5px;height:2.5px;border-radius:50%;background:rgba(0,0,0,.28)}
+.sec:hover{filter:brightness(.94)}
+#head{position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--hot); pointer-events:none; box-shadow:0 0 0 1px rgba(255,255,255,.7)}
+#head::before{content:""; position:absolute; top:-3px; left:-3px; border:4px solid transparent; border-top-color:var(--hot)}
+
+/* ─────────────── mixer row ─────────────── */
+#mixrow{display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:9px; min-height:0}
+.scroller{overflow-x:auto; overflow-y:hidden}
+.strips{display:flex; gap:5px; padding:8px 9px}
+
+.strip{
+  flex:1 1 78px; min-width:68px; max-width:160px; display:flex; flex-direction:column; gap:4px;
+  background:var(--panel-2); border:1px solid var(--line); border-radius:3px;
+  padding:4px 4px 5px; position:relative; cursor:pointer;
+  border-top:3px solid var(--line);          /* the colour cap, folded into the border */
+}
+.strip[data-sel="1"]{border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent)}
+.strip[data-mute="1"]{opacity:.52}
+/* Name and level readout share one row — the readout no longer costs a row. */
+.strip .nm{
+  font:600 10px/1 ui-sans-serif,sans-serif; letter-spacing:.01em;
+  display:flex; align-items:baseline; gap:4px;
+}
+.strip .nm em{font-style:normal; margin-left:auto; font:500 8.5px/1 var(--mono); color:var(--ink-3)}
+.sendrow{display:flex; gap:1.5px; height:7px; align-items:flex-end}
+.sendrow s{flex:1; background:var(--sunk); border-radius:1px; height:2px; position:relative}
+.sendrow s b{position:absolute; inset:auto 0 0 0; border-radius:1px; display:block}
+
+/* The meter is the fader's own track, not a column beside it. That buys back
+   the meter's width AND lets the fader be wide enough to stay grabbable at
+   92 px of travel instead of 150. */
+.faderarea{flex:none; display:flex; justify-content:center; height:var(--fh); padding:1px 0}
+/* A strip widens on a big monitor, but the fader itself should not — past
+   ~46 px it stops reading as a fader and starts reading as a panel. */
+.fader{
+  width:100%; max-width:46px; background:var(--sunk); border:1px solid var(--line-2);
+  border-radius:2px; position:relative; cursor:ns-resize; touch-action:none; overflow:hidden;
+}
+/* The gradient is sized to the whole TRACK and pinned to its bottom, so a
+   colour means a level. Left to default it would rescale into the fill and
+   every meter would show red at its own tip regardless of how loud it is. */
+.fader .lv{
+  position:absolute; left:0; right:0; bottom:0; height:0%;
+  background:linear-gradient(0deg,var(--ok) 0%,var(--ok) 62%,var(--warn) 84%,var(--hot) 100%);
+  background-size:100% var(--fh); background-position:left bottom; background-repeat:no-repeat;
+  opacity:.32;
+}
+.fader .pk{position:absolute; left:0; right:0; height:1px; background:var(--ink); opacity:.35}
+/* The cap has to win against the meter behind it, so it is the one opaque,
+   hard-edged thing in the track. */
+.fader .cap2{
+  position:absolute; left:0; right:0; height:9px; margin-top:-4.5px;
+  background:linear-gradient(#fbfaf8,#d8d4ca); border-top:1px solid #8e8a80;
+  border-bottom:1px solid #8e8a80; box-shadow:0 2px 4px rgba(0,0,0,.22);
+}
+.fader .cap2::after{content:""; position:absolute; left:3px; right:3px; top:50%; margin-top:-1px; height:2px; background:var(--ink-2); border-radius:1px}
+.fader .u{position:absolute; left:0; right:0; height:1px; background:var(--line-2); opacity:.85}
+
+.pan{display:flex; align-items:center; gap:3px}
+.pantrack{flex:1; height:9px; background:var(--sunk); border:1px solid var(--line-2); border-radius:2px; position:relative; cursor:ew-resize; touch-action:none}
+.pantrack .mid{position:absolute; left:50%; top:1px; bottom:1px; width:1px; background:var(--line-2)}
+.pantrack .kn{position:absolute; top:-1px; bottom:-1px; width:6px; margin-left:-3px; background:linear-gradient(#fdfdfc,#e6e3dc); border:1px solid var(--line-2); border-radius:2px}
+.pan .pv{font:500 8px/1 var(--mono); color:var(--ink-3); width:20px; text-align:right}
+.ms{display:flex; gap:3px}
+.ms button{
+  flex:1; border:1px solid var(--line-2); background:var(--panel); border-radius:2px;
+  padding:3px 0; font:700 9px/1 ui-sans-serif,sans-serif; cursor:pointer; color:var(--ink-2);
+}
+.ms button[aria-pressed="true"].m{background:var(--hot); border-color:var(--hot); color:#fff}
+.ms button[aria-pressed="true"].s{background:var(--warn); border-color:var(--warn); color:#fff}
+
+/* returns + master */
+.rgroup{background:var(--sunk)}
+.rgroup .strips{padding:6px}
+.strip.ret{flex:none; width:64px; background:#f6f3ec}
+.strip.master{flex:none; width:96px; background:#eeeae1; border-color:var(--line-2)}
+.strip.master .nm{letter-spacing:.1em; text-transform:uppercase; font-size:9px}
+.trimrow{display:flex; justify-content:space-between; font:500 8.5px/1.35 var(--mono); color:var(--ink-2)}
+.trimrow em{font-style:normal; color:var(--ink-3)}
+.lock{font:500 7.5px/1.25 var(--mono); color:var(--ink-3); text-align:center; padding:2px; background:var(--sunk); border-radius:2px}
+
+/* ─────────────── bottom row ─────────────── */
+#botrow{display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:9px}
+
+/* send matrix */
+#matrix{padding:6px 8px; overflow:auto}
+table{border-collapse:collapse; width:100%; font:500 9.5px/1 var(--mono)}
+th{font:600 8px/1 ui-sans-serif,sans-serif; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-2); padding:0 0 3px; text-align:center}
+th.rowh{text-align:left; padding-right:6px; width:56px}
+td.rowh{
+  font:600 9px/1 ui-sans-serif,sans-serif; padding:0 6px 0 0; white-space:nowrap;
+  border-right:1px solid var(--line);
+}
+td.rowh i{display:inline-block; width:5px;height:5px;border-radius:50%; margin-right:4px}
+.cell{
+  height:16px; border:1px solid var(--line); border-radius:2px; background:var(--panel-2);
+  position:relative; cursor:ns-resize; touch-action:none; overflow:hidden;
+}
+td{padding:1px}
+.cell .cf{position:absolute; left:0; right:0; bottom:0}
+.cell .cn{position:absolute; inset:0; display:grid; place-items:center; font:500 8.5px/1 var(--mono); color:var(--ink-2)}
+.cell[data-off="1"] .cn{color:#c9c4b8}
+.cell[data-off="1"]{background:repeating-linear-gradient(135deg,var(--panel-2),var(--panel-2) 3px,#f0eee8 3px,#f0eee8 6px)}
+.cell:hover{border-color:var(--accent)}
+
+/* echo detail */
+#detail{display:flex; flex-direction:column}
+#dbody{padding:7px 8px; display:grid; grid-template-columns:auto 1fr; gap:9px; min-height:0; overflow:auto}
+.knobs{display:flex; gap:7px}
+.knobcell{display:flex; flex-direction:column; align-items:center; gap:3px; width:58px}
+.knobcell .kl{font:600 8px/1 ui-sans-serif,sans-serif; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3); text-align:center}
+.knob{width:44px;height:44px; position:relative; cursor:ns-resize; touch-action:none}
+.knob svg{display:block; width:100%; height:100%; overflow:visible}
+.knob .kv{
+  position:absolute; inset:0; display:grid; place-items:center;
+  font:500 10px/1 var(--mono); color:var(--ink); pointer-events:none;
+}
+.knobcell[data-auto="1"] .kl{color:var(--auto)}
+.tag{
+  font:700 7.5px/1 ui-sans-serif,sans-serif; letter-spacing:.1em; padding:2px 4px; border-radius:2px;
+  background:var(--sunk); color:var(--ink-3);
+}
+.tag.on{background:var(--auto); color:#fff}
+.tag.touch{background:var(--hot); color:#fff}
+
+.rates{display:flex; flex-direction:column; gap:5px}
+.rate{
+  background:var(--panel-2); border:1px solid var(--line); border-left:3px solid var(--line-2);
+  border-radius:3px; padding:4px 7px; display:flex; align-items:center; gap:7px;
+}
+.rate.grid{border-left-color:var(--accent)}
+.rate.free{border-left-color:var(--auto)}
+.rate.note{border-left-color:var(--ok)}
+.rate .rl{width:82px; flex:none}
+.rate .rl b{display:block; font:600 10px/1.3 ui-sans-serif,sans-serif}
+.rate .rl span{display:block; font:400 8.5px/1.3 var(--mono); color:var(--ink-3)}
+.chip{
+  border:1px solid var(--line-2); background:var(--panel); border-radius:2px; padding:3px 7px;
+  font:600 10px/1 var(--mono); cursor:pointer; color:var(--ink);
+}
+.chip:hover{border-color:var(--accent)}
+.slider{flex:1; height:16px; background:var(--sunk); border:1px solid var(--line-2); border-radius:2px; position:relative; cursor:ew-resize; touch-action:none; min-width:60px}
+.slider .sf{position:absolute; left:0; top:0; bottom:0; background:rgba(31,95,139,.22)}
+.slider .st{position:absolute; inset:0; display:grid; place-items:center; font:500 9px/1 var(--mono); pointer-events:none}
+.derived{font:500 11px/1 var(--mono); color:var(--ink); width:64px; text-align:right; flex:none}
+.wave{width:56px;height:18px;flex:none}
+#throw{
+  border:1px solid var(--hot); background:var(--panel); color:var(--hot); border-radius:2px;
+  padding:7px 12px; font:700 10px/1 ui-sans-serif,sans-serif; letter-spacing:.13em; cursor:pointer;
+}
+#throw:active,#throw[data-fire="1"]{background:var(--hot); color:#fff}
+.hint{font:400 8.5px/1.4 var(--mono); color:var(--ink-3); padding:0 8px 6px}
+.hint kbd{background:var(--sunk); border-radius:2px; padding:1px 4px; font-family:var(--mono)}
+</style>
+</head>
+<body>
+
+<!-- ══════════ transport ══════════ -->
+<header class="panel" id="transport">
+  <button id="play" data-on="0" title="play / stop">&#9654;</button>
+  <div class="wordmark">dub_synth<small>DESK — LIVE</small></div>
+
+  <div class="field"><label>seed</label><div class="v" id="f-seed">7</div></div>
+  <div class="field"><label>bpm</label><div class="v" id="f-bpm">125</div></div>
+  <div class="field"><label>key</label><div class="v" id="f-key">G minor</div></div>
+  <div class="field"><label>progression</label><div class="v" id="f-prog">listing</div></div>
+  <div class="field"><label>pattern</label><div class="v" id="f-pat">steppers</div></div>
+  <div class="field"><label>noise</label><div class="v" id="f-noise">synth · static</div></div>
+
+  <div id="now">
+    <div class="field" style="text-align:right"><label id="seclabel">section — of ∞</label><div class="v" id="statelabel">press play</div></div>
+    <span class="badge" id="statebadge">IDLE</span>
+    <div id="clock">00:00</div>
+  </div>
+</header>
+
+<!-- ══════════ arc ribbon ══════════ -->
+<section class="panel" id="arcwrap">
+  <div id="arclbl"><b>Arc</b><span>as it<br>arrives</span></div>
+  <div id="arc"><div id="head"></div></div>
+</section>
+
+<!-- ══════════ mixer ══════════ -->
+<section id="mixrow">
+  <div class="panel" style="min-width:0">
+    <div class="hd"><h2>Channels</h2><span class="note" id="chnote">drag faders · click M/S · click a strip to load its bus below</span></div>
+    <div class="scroller"><div class="strips" id="chstrips"></div></div>
+  </div>
+
+  <div class="panel rgroup">
+    <div class="hd"><h2>Bus returns</h2></div>
+    <div class="scroller"><div class="strips" id="retstrips"></div></div>
+  </div>
+
+  <div class="panel">
+    <div class="hd"><h2>Master</h2></div>
+    <div class="strips" id="masterstrip"></div>
+  </div>
+</section>
+
+<!-- ══════════ matrix + detail ══════════ -->
+<section id="botrow">
+  <div class="panel" style="display:flex;flex-direction:column;min-height:0">
+    <div class="hd">
+      <h2>Send matrix</h2>
+      <span class="note">10 × 7 — hatched cells are wired and silent; drag any cell to open it</span>
+    </div>
+    <div id="matrix"></div>
+  </div>
+
+  <div class="panel" id="detail">
+    <div class="hd"><h2 id="dtitle">echoA</h2><span class="note" id="dsub">dotted 1/8 · 237 ms · stabA</span></div>
+    <div id="dbody">
+      <div class="knobs" id="dknobs"></div>
+      <div class="rates" id="drates"></div>
+    </div>
+    <div class="hint">
+      <kbd>drag</kbd> a violet knob to override its automation — it goes <b style="color:var(--hot)">TOUCH</b>,
+      the walk keeps running underneath, and release hands it back.
+    </div>
+  </div>
+</section>
+
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

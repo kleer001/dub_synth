@@ -11,7 +11,8 @@
     "headroom": "node render.mjs --headroom",
     "stems": "node stems.mjs",
     "scan-samples": "node scan_samples.mjs",
-    "test": "node --test test/"
+    "test": "node --test test/",
+    "desk": "node serve.mjs"
   },
   "devDependencies": {
     "node-web-audio-api": "^2.0.0"
