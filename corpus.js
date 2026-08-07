@@ -14,18 +14,21 @@
 // silent fallback. `sampleBed` requires its file and throws if the library is not
 // mounted; `synthBed` never touches the disk. A caller that wants "samples if
 // available" has to ask for that in so many words.
+//
+// The synthesized beds live in noise.js. This file reads the disk, which makes it
+// unimportable in a browser, and the live desk needs the synthesized half.
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { decodeWav } from "./core/wav.js";
-import { pinkNoise, whiteNoise } from "./core/dsp.js";
+import { NOISE_TYPES, synthBed } from "./noise.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MANIFEST = join(HERE, "data", "noise_corpus.json");
 
-export const NOISE_TYPES = ["static", "vinyl", "soundscape"];
+export { NOISE_TYPES, synthBed };
 
 let cached = null;
 export function loadManifest(path = MANIFEST) {
@@ -75,50 +78,6 @@ export function sampleBed(ctx, entry, { gain = 0.05, hpf = 900, start = 0 } = {}
   src.connect(hp).connect(level).connect(output);
   src.start(start);
   return { output, source: src, level: level.gain, hp, entry };
-}
-
-// Synthesized beds. Static is a stationary process and synthesis handles it
-// well; crackle is modelled as sparse impulsive events over a hiss floor, which
-// is what crackle physically is. There is no synthesized soundscape, because
-// there is no honest way to synthesize a place — ask for a sample instead.
-export function synthBed(ctx, { type = "static", rng, seconds = 4, gain = 0.05, hpf = 900, start = 0 } = {}) {
-  const output = ctx.createGain();
-  const level = ctx.createGain();
-  level.gain.value = gain;
-  const hp = ctx.createBiquadFilter();
-  hp.type = "highpass"; hp.frequency.value = hpf;
-
-  if (type === "static") {
-    const src = ctx.createBufferSource();
-    src.buffer = pinkNoise(ctx, seconds, { seed: rng ? rng.int(1, 1e6) : 0 });
-    src.loop = true;
-    src.connect(hp).connect(level).connect(output);
-    src.start(start);
-    return { output, source: src, level: level.gain, hp };
-  }
-
-  if (type === "vinyl") {
-    // Crackle: a quiet hiss floor with sparse pops scattered over it. The pops
-    // are what a stationary noise generator cannot produce.
-    const buf = whiteNoise(ctx, seconds, { seed: rng ? rng.int(1, 1e6) : 0 });
-    const d = buf.getChannelData(0);
-    const r = rng ?? { float: () => Math.random(), int: (a, b) => a + Math.floor(Math.random() * (b - a + 1)) };
-    for (let i = 0; i < d.length; i++) d[i] *= 0.08;
-    const pops = Math.round(seconds * r.float(18, 40));
-    for (let p = 0; p < pops; p++) {
-      const at = r.int(0, d.length - 200);
-      const amp = r.float(0.15, 0.9);
-      const len = r.int(8, 90);
-      for (let i = 0; i < len; i++) d[at + i] += amp * Math.exp(-i / (len * 0.3)) * (i % 2 ? -1 : 1);
-    }
-    const src = ctx.createBufferSource();
-    src.buffer = buf; src.loop = true;
-    src.connect(hp).connect(level).connect(output);
-    src.start(start);
-    return { output, source: src, level: level.gain, hp };
-  }
-
-  throw new Error(`no synthesized bed for "${type}" — a place has to be recorded; use sampleBed`);
 }
 
 // Convenience for the render harness: samples when explicitly asked and the
