@@ -1,0 +1,12 @@
+node_modules/
+package-lock.json
+
+# Source PDFs the digest was derived from: analysis-time input, freely
+# re-downloadable from their repositories. research/*.md ARE tracked.
+research/sources/*.pdf
+
+# Renders
+*.wav
+!test/fixtures/**/*.wav
+
+.DS_Store
