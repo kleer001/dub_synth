@@ -110,12 +110,26 @@ export function makeShimmer(ctx, {
   const g = convolverSend(ctx, impulse(ctx, decay, { dark, stereo: true, seed, random }), { preDelay, wet });
 
   // The feedback loop runs a pitch shifter back into a unity-gain convolver, so
-  // it is the one place here that can genuinely run away. Keep it well under 1.
+  // it is the one place here that can genuinely run away — and how far it can be
+  // pushed depends on WHICH shifter it got, which is not something a caller can
+  // see. makeBestPitchShifter hands back the granular delay-line shifter offline
+  // and the phase-vocoder worklet in a browser, and a phase vocoder re-analysing
+  // its own output is not the same system: measured by driving this loop
+  // continuously and reading its slope, the granular path holds level at
+  // feedback 0.42 while the vocoder path grows at +9.6 dB/s at the same setting,
+  // and only settles at 0.22.
+  //
+  // So the ceiling is per-shifter and enforced on every path that can raise
+  // feedback, the way makeDubEcho governs its own. Without it the rig's own
+  // 0.42 — and shimmerRise's 0.7 at the outro — silently detonate in a browser
+  // while measuring clean offline.
   const shifter = makeBestPitchShifter(ctx, { semitones });
+  const maxFeedback = shifter.kind === "phasevocoder" ? 0.22 : 1;
+  const capFb = (v) => Math.min(v, maxFeedback);
   const shelf = ctx.createBiquadFilter();
   shelf.type = "highshelf"; shelf.frequency.value = 1800; shelf.gain.value = brighten;
   const fb = ctx.createGain();
-  fb.gain.value = feedback;
+  fb.gain.value = capFb(feedback);
 
   g.conv.connect(shifter.input);
   shifter.output.connect(shelf).connect(fb).connect(g.conv);
@@ -128,7 +142,12 @@ export function makeShimmer(ctx, {
     },
     // The rise is a performed parameter: Resonance's outro pushes the space open
     // rather than fading it.
-    setFeedback(v, at, seconds = 2) { at === undefined ? (fb.gain.value = v) : ride(fb.gain, v, at, seconds); return this; },
+    setFeedback(v, at, seconds = 2) {
+      const c = capFb(v);
+      at === undefined ? (fb.gain.value = c) : ride(fb.gain, c, at, seconds);
+      return this;
+    },
+    get maxFeedback() { return maxFeedback; },
     setLevel(v, at) { at === undefined ? (g.level.gain.value = v) : ride(g.level.gain, v, at); return this; },
     setPreDelay(v, at) { at === undefined ? (g.pre.delayTime.value = v) : ride(g.pre.delayTime, v, at); return this; },
   };
