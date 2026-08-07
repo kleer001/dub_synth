@@ -60,16 +60,19 @@ export const DUB_RIG = {
   // under the dry frame.
   buses: {
     // Listing, Sinking's measured stab echo: dotted ~237 ms, 50% feedback, 70% wet.
-    echoA:   { fx: "echo", opts: { time: 0.237, feedback: 0.42, wet: 1, dry: 0 }, ret: 0.55 },
+    // `walk` is the §2 feedback ride's range for this bus, and it belongs here
+    // rather than at the three call sites that arm it: the range is a property of
+    // the echo, and how hot a bus is allowed to get is a mix decision.
+    echoA:   { fx: "echo", opts: { time: 0.237, feedback: 0.42, wet: 1, dry: 0 }, ret: 0.30, walk: { min: 0.28, max: 0.50 } },
     // Phylyps Trak's first stabs sit on a 1/16 echo at high feedback.
     // A 1/16 echo is faithful to Phylyps Trak, but a 1/16 IS dense — at 125 BPM
     // it repeats 8 times a second, so its feedback and return have to be the
     // lowest of the three or it becomes the loudest thing in the mix. Measured at
     // feedback 0.46 / return 0.28 it was 76% of the whole track, peaking as loud
     // as the kick.
-    echoB:   { fx: "echo", opts: { time: 0.120, feedback: 0.36, wet: 1, dry: 0 }, ret: 0.18 },
+    echoB:   { fx: "echo", opts: { time: 0.120, feedback: 0.36, wet: 1, dry: 0 }, ret: 0.18, walk: { min: 0.20, max: 0.42 } },
     // The heavily articulated third layer — long, and ridden hardest.
-    echoC:   { fx: "echo", opts: { time: 0.480, feedback: 0.52, wet: 1, dry: 0 }, ret: 0.42 },
+    echoC:   { fx: "echo", opts: { time: 0.480, feedback: 0.52, wet: 1, dry: 0 }, ret: 0.42, walk: { min: 0.30, max: 0.66 } },
     fdelay:  { fx: "filterDelay", opts: {}, ret: 0.55 },
     spring:  { fx: "spring", opts: { decay: 1.0, color: 2200 }, ret: 0.85 },
     plate:   { fx: "plate", opts: { decay: 3.4, preDelay: 0.09 }, ret: 0.30 },
@@ -79,7 +82,7 @@ export const DUB_RIG = {
   // `node dub_synth/render.mjs --headroom` after any change to channels, buses,
   // returns or voices, and paste what it suggests. Getting this wrong is what
   // made the mix read hot when the rig grew from six channels to ten.
-  master: 0.526,
+  master: 0.713,
   masterBus: {},
 };
 

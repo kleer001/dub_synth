@@ -27,6 +27,7 @@ catch { console.error("needs node-web-audio-api (dev only)"); process.exit(1); }
 }
 
 const { makeRng } = await import("./core/rng.js");
+const { knobRates } = await import("./dsp/knob.js");
 const { DUB_RIG, buildRig } = await import("./rig.js");
 const { applyAll } = await import("./gesture.js");
 const { planPerformance } = await import("./perform.js");
@@ -55,10 +56,14 @@ async function render({ soloChannel = null, soloBus = null, dryOnly = false } = 
   rig.master.neutral();
   rig.output.connect(ctx.destination);
 
-  for (const [bus, cfg] of [["echoA", { min: 0.28, max: 0.62 }], ["echoB", { min: 0.20, max: 0.42 }], ["echoC", { min: 0.30, max: 0.66 }]]) {
-    rig.fx[bus].rideFeedback({ rng: knobRng, seconds: SECONDS, rate: 4.26, ...cfg });
-    rig.fx[bus].driftTone({ rate: 0.11, centre: 2750, depth: 2250 });
+  // The same rates the render uses, from the same place. A stem report measuring
+  // a rig the render does not have is a diagnostic that lies.
+  const { walk: WALK_RATE, drift: DRIFT_RATE, warp: WARP_RATE } = knobRates(BEAT);
+  for (const [bus, cfg] of Object.entries(DUB_RIG.buses).filter(([, d]) => d.walk).map(([n, d]) => [n, d.walk])) {
+    rig.fx[bus].rideFeedback({ rng: knobRng, seconds: SECONDS, rate: WALK_RATE, ...cfg });
+    rig.fx[bus].driftTone({ rate: DRIFT_RATE, centre: 2750, depth: 2250 });
   }
+  rig.fx.echoC.warpTime({ rng: knobRng, seconds: SECONDS, rate: WARP_RATE, low: 0.55, high: 0.85 });
   applyAll(rig, planPerformance({ rng: planRng, spec: DUB_RIG, seconds: SECONDS }).flatMap((x) => x.gestures));
 
   // Solo AFTER the plan is written, and cancel its automation first — a scheduled

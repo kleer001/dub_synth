@@ -84,10 +84,18 @@ export function makeMasterBus(ctx, opts = {}) {
     },
     // Bypass everything but the trim, to read the true pre-master level. This is
     // how the headroom tool avoids measuring its own processing.
+    // A WaveShaper clamps its INPUT to [-1, 1] whatever its curve says, so
+    // linearising the curve is not a bypass: anything hotter than full scale
+    // still comes out at exactly full scale. Measured through that, every
+    // over-unity stem reports "peak 0.0 dB" and the one thing the diagnostic
+    // exists to find — an element pushing past the ceiling — is the one thing it
+    // cannot show. Route around the shaper instead. One-way, and only ever used
+    // by the measuring tools.
     neutral() {
       mud.gain.value = 0; air.gain.value = 0; sub.gain.value = 0;
       trim.gain.value = 1;
-      clip.curve = satCurve(0.0001); // effectively linear
+      try { trim.disconnect(clip); } catch (_) {}
+      trim.connect(output);
       return this;
     },
   };

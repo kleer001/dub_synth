@@ -13,6 +13,34 @@
 
 const FLOOR = 0.0001;
 
+// §2's three hand-rates, in one place because three callers need the same ones
+// and a diagnostic that measures different rates than the render is worse than
+// no diagnostic.
+//
+// The feedback figure is 4.26 Hz, a knob position measured off one Ableton
+// session, and §2 is emphatic that it is NOT synchronised: it sits at a ratio
+// near 39 against the tone drift so the combined motion never repeats. Held as a
+// bare constant that intent survives at exactly one tempo — at 125 BPM 4.26 Hz
+// is an eighth note 2.2% sharp, slipping a whole cycle every ~5.6 bars, which is
+// what a hand riding in time with a track does; at 144 it is 11% flat of an
+// eighth and means something else. So it is anchored to the eighth and detuned
+// off it, and the detune stays an awkward fraction on purpose: a round one would
+// periodically relock the two LFOs and cost exactly the property §2 asks for.
+//
+// The drift stays absolute. Its 9.1-second period is below the band where tempo
+// means anything — it is heard as breathing, not as placement — and pinning it to
+// the grid would only risk making it commensurable with the walk.
+//
+// The warp is the one LFO §2 beat-syncs, and §2 names its rate: a 1/4.
+const WALK_DETUNE = 0.0224;
+export function knobRates(beat) {
+  return {
+    walk: (2 / beat) * (1 + WALK_DETUNE),   // 4.26 Hz at 125 BPM
+    drift: 0.11,
+    warp: 1 / beat,
+  };
+}
+
 // A deliberate move of a knob: hold, then travel to `to` over `seconds`.
 // This is the transition primitive — §3: "increasing the amount of feedback is
 // a dominating notion for reinforcing, embellishing, or organizing the

@@ -27,7 +27,7 @@ import { makeRiddim } from "../riddim.js";
 import { armVoiceWalks, makeVoices } from "../voices.js";
 import { synthBed } from "../noise.js";
 import { loadPitchWorklet } from "../dsp/fx.js";
-import { ride } from "../dsp/knob.js";
+import { knobRates, ride } from "../dsp/knob.js";
 
 // How far ahead to schedule, and how often to wake. The window has to comfortably
 // exceed the timer's worst-case lateness or a note lands in the past and Web
@@ -94,14 +94,9 @@ export function createEngine(ctx, opts = {}) {
   const out = ctx.createGain();
   rig.output.connect(out);
 
-  // §2's rates, derived the same way render.mjs derives them.
-  const WALK_RATE = (2 / BEAT) * (1 + 0.0224);   // 4.26 Hz at 125 BPM
-  const DRIFT_RATE = 0.11;
-  const WALKS = [
-    ["echoA", { min: 0.28, max: 0.62 }],
-    ["echoB", { min: 0.20, max: 0.42 }],
-    ["echoC", { min: 0.30, max: 0.66 }],
-  ];
+  // §2's rates, from the same place render.mjs and stems.mjs take them.
+  const { walk: WALK_RATE, drift: DRIFT_RATE, warp: WARP_RATE } = knobRates(BEAT);
+  const WALKS = Object.entries(DUB_RIG.buses).filter(([, d]) => d.walk).map(([n, d]) => [n, d.walk]);
   for (const [bus] of WALKS) rig.fx[bus].driftTone({ rate: DRIFT_RATE, centre: 2750, depth: 2250 });
 
   // Every walk in the rig, each with its own rate and therefore its own span.
@@ -112,8 +107,8 @@ export function createEngine(ctx, opts = {}) {
       arm: (start, seconds) => rig.fx[bus].rideFeedback({ rng: knobRng, seconds, rate: WALK_RATE, start: t0 + start, ...range }),
     })),
     {
-      key: "echoC.time", rate: 1 / BEAT, armedUntil: 0,
-      arm: (start, seconds) => rig.fx.echoC.warpTime({ rng: knobRng, seconds, rate: 1 / BEAT, low: 0.55, high: 0.85, start: t0 + start }),
+      key: "echoC.time", rate: WARP_RATE, armedUntil: 0,
+      arm: (start, seconds) => rig.fx.echoC.warpTime({ rng: knobRng, seconds, rate: WARP_RATE, low: 0.55, high: 0.85, start: t0 + start }),
     },
     ...[["stabA", parts.stabA], ["stabB", parts.stabB], ["stabC", parts.stabC], ["pad", pad]]
       .flatMap(([name, v]) => (v.walks ?? []).map((w) => ({
