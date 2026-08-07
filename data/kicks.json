@@ -1,0 +1,127 @@
+{
+  "root": "/media/menser/larg/Music/samples",
+  "scanned": 1838,
+  "criteria": "lowShare >= 0.90 (energy under 350 Hz, §1) and tail <= 320 ms (§5 stiff)",
+  "entries": [
+    {
+      "name": "Ac_Kick2-2",
+      "path": "/media/menser/larg/Music/samples/LOUNGE CHILLOUT/Drum Kits/Springs Kit/Ac_Kick2-2.wav",
+      "ms": 256,
+      "sampleRate": 44100,
+      "channels": 2,
+      "lowShare": 0.982,
+      "peakDb": 0,
+      "rel": "LOUNGE CHILLOUT/Drum Kits/Springs Kit/Ac_Kick2-2.wav"
+    },
+    {
+      "name": "mth_bd_909er-2",
+      "path": "/media/menser/larg/Music/samples/Sample Magic - Minimal & Tech House/drum hits/kick drums/mth_bd_909er-2.wav",
+      "ms": 221,
+      "sampleRate": 44100,
+      "channels": 2,
+      "lowShare": 0.97,
+      "peakDb": 0,
+      "rel": "Sample Magic - Minimal & Tech House/drum hits/kick drums/mth_bd_909er-2.wav"
+    },
+    {
+      "name": "OS Sly kick-2",
+      "path": "/media/menser/larg/Music/samples/SamplesOnNirvana/loopSounds/STREET BEATS/Producer 3/OS Sly kick-2.wav",
+      "ms": 252,
+      "sampleRate": 44100,
+      "channels": 2,
+      "lowShare": 0.97,
+      "peakDb": 0,
+      "rel": "SamplesOnNirvana/loopSounds/STREET BEATS/Producer 3/OS Sly kick-2.wav"
+    },
+    {
+      "name": "VEC2 Bassdrums Hard 028-2",
+      "path": "/media/menser/larg/Music/samples/VENGEANCE ESSENTIAL CLUB SOUNDS vol-2/BASSDRUM/VEC2 Hard Kicks/VEC2 Bassdrums Hard 028-2.wav",
+      "ms": 211,
+      "sampleRate": 44100,
+      "channels": 2,
+      "lowShare": 0.969,
+      "peakDb": 0,
+      "rel": "VENGEANCE ESSENTIAL CLUB SOUNDS vol-2/BASSDRUM/VEC2 Hard Kicks/VEC2 Bassdrums Hard 028-2.wav"
+    },
+    {
+      "name": "VEC1 BD GateFX 13-2",
+      "path": "/media/menser/larg/Music/samples/VENGEANCE ESSENTIAL CLUB SOUNDS vol-1/VEC1 Bassdrums/VEC1 GateFX/VEC1 BD GateFX 13-2.wav",
+      "ms": 316,
+      "sampleRate": 44100,
+      "channels": 2,
+      "lowShare": 0.968,
+      "peakDb": -3,
+      "rel": "VENGEANCE ESSENTIAL CLUB SOUNDS vol-1/VEC1 Bassdrums/VEC1 GateFX/VEC1 BD GateFX 13-2.wav"
+    },
+    {
+      "name": "waterkit_kick_02_22-2",
+      "path": "/media/menser/larg/Music/samples/Tonehammer_Anti_Drum_2/1_Antidrum_2_Core_Library/warble-plinkit/Warble-plinkit samples/waterkit_kick_02_22-2.wav",
+      "ms": 240,
+      "sampleRate": 44100,
+      "channels": 2,
+      "lowShare": 0.964,
+      "peakDb": -0.3,
+      "rel": "Tonehammer_Anti_Drum_2/1_Antidrum_2_Core_Library/warble-plinkit/Warble-plinkit samples/waterkit_kick_02_22-2.wav"
+    },
+    {
+      "name": "mth_bd_paredback-2",
+      "path": "/media/menser/larg/Music/samples/Sample Magic - Minimal & Tech House/drum hits/kick drums/mth_bd_paredback-2.wav",
+      "ms": 110,
+      "sampleRate": 44100,
+      "channels": 2,
+      "lowShare": 0.962,
+      "peakDb": 0,
+      "rel": "Sample Magic - Minimal & Tech House/drum hits/kick drums/mth_bd_paredback-2.wav"
+    },
+    {
+      "name": "VEC2 Bassdrums Hard 027-2",
+      "path": "/media/menser/larg/Music/samples/VENGEANCE ESSENTIAL CLUB SOUNDS vol-2/BASSDRUM/VEC2 Hard Kicks/VEC2 Bassdrums Hard 027-2.wav",
+      "ms": 195,
+      "sampleRate": 44100,
+      "channels": 2,
+      "lowShare": 0.961,
+      "peakDb": 0,
+      "rel": "VENGEANCE ESSENTIAL CLUB SOUNDS vol-2/BASSDRUM/VEC2 Hard Kicks/VEC2 Bassdrums Hard 027-2.wav"
+    },
+    {
+      "name": "mth_bd_earfreaker-2",
+      "path": "/media/menser/larg/Music/samples/Sample Magic - Minimal & Tech House/drum hits/kick drums/mth_bd_earfreaker-2.wav",
+      "ms": 309,
+      "sampleRate": 44100,
+      "channels": 2,
+      "lowShare": 0.961,
+      "peakDb": -0.1,
+      "rel": "Sample Magic - Minimal & Tech House/drum hits/kick drums/mth_bd_earfreaker-2.wav"
+    },
+    {
+      "name": "MM_SynKick-29-2",
+      "path": "/media/menser/larg/Music/samples/futureMusics/Kraftwerk_2/Kicks/MM_SynKick-29-2.wav",
+      "ms": 189,
+      "sampleRate": 44100,
+      "channels": 1,
+      "lowShare": 0.96,
+      "peakDb": -4.8,
+      "rel": "futureMusics/Kraftwerk_2/Kicks/MM_SynKick-29-2.wav"
+    },
+    {
+      "name": "lo fi 9 bd-2",
+      "path": "/media/menser/larg/Music/samples/SamplesOnNirvana/samples_Misc/09-LO-FI KITS/LO-FI KIT 09/lo fi 9 bd-2.WAV",
+      "ms": 193,
+      "sampleRate": 44100,
+      "channels": 1,
+      "lowShare": 0.96,
+      "peakDb": 0,
+      "rel": "SamplesOnNirvana/samples_Misc/09-LO-FI KITS/LO-FI KIT 09/lo fi 9 bd-2.WAV"
+    },
+    {
+      "name": "mth_bd_stereobigboy-2",
+      "path": "/media/menser/larg/Music/samples/Sample Magic - Minimal & Tech House/drum hits/kick drums/mth_bd_stereobigboy-2.wav",
+      "ms": 307,
+      "sampleRate": 44100,
+      "channels": 2,
+      "lowShare": 0.96,
+      "peakDb": 0,
+      "rel": "Sample Magic - Minimal & Tech House/drum hits/kick drums/mth_bd_stereobigboy-2.wav"
+    }
+  ]
+}

@@ -82,6 +82,12 @@ export function makeRiddim({
   progression = "listing",
   barsPerChord = 16,
   bassShape = "rootFifthOctave",
+  // How much the fixed frame breathes. These are the §4 groove operators'
+  // likelihoods per bar, and they are the one genuinely continuous dial in the
+  // riddim: at zero the bar is identical forever, and turned up the figure
+  // displaces, rests and mutes without ever changing pitch. Defaults are the
+  // measured-feel values the engine shipped with.
+  groove = { displace: 0.35, breathe: 0.25, deadNotes: 0.30, rotate: 0.15 },
 } = {}) {
   const drums = DRUM_PATTERNS[pattern];
   if (!drums) throw new Error(`unknown drum pattern "${pattern}"`);
@@ -102,6 +108,7 @@ export function makeRiddim({
   return {
     steps: STEPS,
     pattern,
+    groove,
     progression,
     degrees,
     barsPerChord,
@@ -137,10 +144,10 @@ export function makeRiddim({
       const r = barRng(bar);
       const deg = this.chordAt(bar);
       let figure = base.map((e) => ({ ...e }));
-      if (r.chance(0.35)) figure = GROOVE_OPS.displace(figure, r.pick([-2, -1, 1, 2]));
-      if (r.chance(0.25)) figure = GROOVE_OPS.breathe(figure);
-      if (r.chance(0.30)) figure = GROOVE_OPS.deadNotes(figure, [r.pick([6, 7, 14, 15])]);
-      if (r.chance(0.15)) figure = GROOVE_OPS.rotate(figure, 1);
+      if (r.chance(groove.displace)) figure = GROOVE_OPS.displace(figure, r.pick([-2, -1, 1, 2]));
+      if (r.chance(groove.breathe)) figure = GROOVE_OPS.breathe(figure);
+      if (r.chance(groove.deadNotes)) figure = GROOVE_OPS.deadNotes(figure, [r.pick([6, 7, 14, 15])]);
+      if (r.chance(groove.rotate)) figure = GROOVE_OPS.rotate(figure, 1);
       return figure.map((e) => ({
         ...e,
         hz: midiToFreq(degreeToMidi(bassRoot, mode, deg + e.degree)),

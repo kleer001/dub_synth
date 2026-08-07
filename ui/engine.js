@@ -24,6 +24,7 @@ import { DUB_RIG, buildRig } from "../rig.js";
 import { applyGesture } from "../gesture.js";
 import { performance as sections } from "../perform.js";
 import { makeRiddim } from "../riddim.js";
+import { findKick, kickUrl } from "../kicks.js";
 import { armVoiceWalks, makeVoices } from "../voices.js";
 import { synthBed } from "../noise.js";
 import { loadPitchWorklet } from "../dsp/fx.js";
@@ -61,7 +62,13 @@ export function createEngine(ctx, opts = {}) {
   const irRng = makeRng(seed ^ 0x5eed);
 
   const rig = buildRig(ctx, DUB_RIG, { random: irRng.next });
-  const riddim = makeRiddim({ rng: noteRng, tonic, octave, progression, pattern, barsPerChord: 16 });
+  // The riddim is plain data with no audio nodes, so it can be rebuilt and swapped
+  // between bars. §3 wants the frame FIXED while the wet is being pushed — but §7
+  // lists a harmonic modification among the five things that mark a section
+  // boundary, so changing the frame as a deliberate move is the genre's own
+  // device. What is not offered is per-step editing while it runs.
+  let riddimOpts = { tonic, octave, progression, pattern, barsPerChord: 16 };
+  let riddim = makeRiddim({ rng: makeRng(seed ^ 0x52494444), ...riddimOpts });
   // No `seconds`: a player does not know its length, so the walks are armed
   // below in spans instead of once at construction.
   const voices = makeVoices(ctx, { rng: noteRng, beat: BEAT });
@@ -69,7 +76,6 @@ export function createEngine(ctx, opts = {}) {
 
   // One persistent voice per part, retriggered — never a graph per note.
   const parts = {
-    kick: voices.kick(ch("kick")),
     bass: voices.bass(ch("bass")),
     hat: voices.hat(ch("hat")),
     shaker: voices.shaker(ch("shaker")),
@@ -79,7 +85,32 @@ export function createEngine(ctx, opts = {}) {
     stabB: voices.stab(ch("stabB"), { cutoff: 2000, pan: 0.2 }),
     stabC: voices.stab(ch("stabC"), { cutoff: 2600 }),
   };
-  const pad = voices.pad(ch("pad"), riddim.stabChord(0).map((hz) => hz / 2));
+  // The pad holds one chord, so a progression change has to rebuild it.
+  let pad = voices.pad(ch("pad"), riddim.stabChord(0).map((hz) => hz / 2));
+
+  // The kick is either the §5 synthesis or a looping sampled bar. Both live on
+  // the same channel; swapping replaces the voice, never the routing.
+  let kickVoice = voices.kick(ch("kick"));
+  let kickName = "synth";
+  async function loadKick(name) {
+    const entry = findKick(name);
+    if (!entry) {
+      if (kickVoice?.kind === "loop") kickVoice.stop();
+      kickVoice = voices.kick(ch("kick"));
+      kickName = "synth";
+      return kickName;
+    }
+    const bytes = await (await fetch(kickUrl(entry))).arrayBuffer();
+    const buffer = await ctx.decodeAudioData(bytes);
+    if (kickVoice?.kind === "loop") kickVoice.stop();
+    kickVoice = voices.sampleKick(ch("kick"), { buffer, steps: riddim.kickSteps(), bar: BAR });
+    kickName = entry.name;
+    if (state === "running") kickVoice.start(nextBarLine());
+    return kickName;
+  }
+  // The next bar line in audio time — a loop or a rebuilt frame lands there, not
+  // wherever the click happened to fall.
+  const nextBarLine = () => t0 + Math.ceil(Math.max(0, now()) / BAR) * BAR;
 
   const bed = synthBed(ctx, { type: noiseType, rng: noteRng, gain: 1, hpf: 900 });
   bed.output.connect(ch("noise"));
@@ -112,8 +143,10 @@ export function createEngine(ctx, opts = {}) {
     },
     ...[["stabA", parts.stabA], ["stabB", parts.stabB], ["stabC", parts.stabC], ["pad", pad]]
       .flatMap(([name, v]) => (v.walks ?? []).map((w) => ({
-        key: `${name}.filter`, rate: w.rate, armedUntil: 0,
-        arm: (start, seconds) => armVoiceWalks(v, { rng: knobRng, start: t0 + start, seconds }),
+        key: `${name}.filter`, rate: w.rate, armedUntil: 0, target: v,
+        // reads `target` rather than closing over the voice, so a rebuilt pad
+        // keeps being walked instead of silently freezing
+        arm(start, seconds) { armVoiceWalks(this.target, { rng: knobRng, start: t0 + start, seconds }); },
       }))),
   ];
 
@@ -150,7 +183,7 @@ export function createEngine(ctx, opts = {}) {
     const base = t0 + n * BAR;
     const at = (step) => base + step * STEP;
 
-    for (const s of riddim.kickSteps()) parts.kick.at(at(s));
+    if (kickVoice.kind !== "loop") for (const s of riddim.kickSteps()) kickVoice.at(at(s));
     for (const s of riddim.hatSteps()) parts.hat.at(at(s));
     for (const s of riddim.shakerSteps()) parts.shaker.at(at(s));
     parts.rim.at(at(8), { peak: 0.3 });
@@ -200,6 +233,7 @@ export function createEngine(ctx, opts = {}) {
       if (ctx.state === "suspended") await ctx.resume();
       ride(out.gain, 1, ctx.currentTime, 0.05);
       t0 = ctx.currentTime + 0.12;      // a beat of slack so the first bar is not late
+      if (kickVoice.kind === "loop") kickVoice.start(t0);
       bar = 0; live = [];
       for (const w of walkers) w.armedUntil = 0;
       plan = sections({ rng: planRng, spec: DUB_RIG });
@@ -223,6 +257,28 @@ export function createEngine(ctx, opts = {}) {
       setTimeout(() => { if (state === "stopped" && ctx.state === "running") ctx.suspend(); }, FADE * 1000 + 60);
       return this;
     },
+
+    get riddim() { return riddim; },
+    get riddimOpts() { return { ...riddimOpts, groove: { ...riddim.groove }, kick: kickName }; },
+
+    // Rebuild the frame and swap it in on the next bar line. Cheap: riddim is
+    // data, and only the pad and a sampled kick's stamped bar depend on it.
+    setRiddim(next = {}) {
+      riddimOpts = { ...riddimOpts, ...next };
+      const groove = { ...riddim.groove, ...(next.groove ?? {}) };
+      riddim = makeRiddim({ rng: makeRng(seed ^ 0x52494444), ...riddimOpts, groove });
+      const line = state === "running" ? nextBarLine() : 0;
+      if (next.progression !== undefined || next.tonic !== undefined || next.octave !== undefined) {
+        pad.dispose(line);
+        pad = voices.pad(ch("pad"), riddim.stabChord(0).map((hz) => hz / 2));
+        const w = walkers.find((x) => x.key === "pad.filter");
+        if (w) { w.target = pad; w.armedUntil = Math.max(0, now()); }
+      }
+      if (kickVoice.kind === "loop") kickVoice.setSteps(riddim.kickSteps(), line);
+      return this.riddimOpts;
+    },
+
+    setKick: (name) => loadKick(name),
 
     // Called by the UI when a hand takes a param, and again when it lets go.
     hold(key, on) { on ? held.add(key) : held.delete(key); return this; },

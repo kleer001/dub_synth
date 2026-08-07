@@ -13,6 +13,8 @@
 
 import { DUB_RIG } from "../rig.js";
 import { bootEngine } from "./engine.js";
+import { KICKS } from "../kicks.js";
+import { DRUM_PATTERNS, PROGRESSIONS } from "../riddim.js";
 
 const q = new URLSearchParams(location.search);
 const OPTS = {
@@ -462,6 +464,79 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
+
+// ── riddim panel ──────────────────────────────────────────────────────────────
+// A panel of documented choices, not a step grid. The options are exactly the
+// ones riddim.js exposes and the source names (§4's three drum patterns, §6's
+// five transcribed progressions), so nothing here can invent material the frame
+// is not supposed to have.
+const TONICS = ["C", "D", "Eb", "F", "G", "A", "Bb"];
+const SHAPES = ["rootFifthOctave", "rootThirdFifth"];
+const GROOVE_LABEL = { displace: "displace", breathe: "breathe", deadNotes: "dead notes", rotate: "rotate" };
+
+function optionRow(host, values, current, onPick, sub = () => "") {
+  host.innerHTML = "";
+  for (const v of values) {
+    const b = document.createElement("button");
+    b.className = "opt";
+    b.setAttribute("aria-pressed", String(v === current));
+    b.innerHTML = `${v}${sub(v) ? `<small>${sub(v)}</small>` : ""}`;
+    b.onclick = async () => {
+      await onPick(v);
+      [...host.children].forEach((c) => c.setAttribute("aria-pressed", String(c === b)));
+    };
+    host.appendChild(b);
+  }
+}
+
+function buildRiddimPanel() {
+  if (!engine) return;
+  const o = engine.riddimOpts;
+
+  optionRow($("#r-kick"), ["synth", ...KICKS.map((k) => k.name)], o.kick,
+    async (v) => { $("#f-kick").textContent = await engine.setKick(v === "synth" ? null : v); },
+    (v) => { const k = KICKS.find((x) => x.name === v); return k ? `${k.ms} ms · ${Math.round(k.lowShare*100)}% low` : "§5 synthesis"; });
+
+  optionRow($("#r-pattern"), Object.keys(DRUM_PATTERNS), o.pattern,
+    (v) => { engine.setRiddim({ pattern: v }); $("#f-pat").textContent = v; });
+
+  optionRow($("#r-prog"), Object.keys(PROGRESSIONS), o.progression,
+    (v) => { engine.setRiddim({ progression: v }); $("#f-prog").textContent = v; },
+    (v) => `${PROGRESSIONS[v].length} chord${PROGRESSIONS[v].length > 1 ? "s" : ""}`);
+
+  optionRow($("#r-tonic"), TONICS, o.tonic,
+    (v) => { engine.setRiddim({ tonic: v }); $("#f-key").textContent = `${v} minor`; });
+
+  optionRow($("#r-shape"), SHAPES, o.bassShape ?? "rootFifthOctave",
+    (v) => engine.setRiddim({ bassShape: v }));
+
+  const G = $("#r-groove");
+  G.innerHTML = "";
+  for (const [key, label] of Object.entries(GROOVE_LABEL)) {
+    const row = document.createElement("div");
+    row.className = "gsl";
+    row.innerHTML = `<b>${label}</b><div class="slider"><div class="sf"></div><div class="st"></div></div>`;
+    const sf = row.querySelector(".sf"), st = row.querySelector(".st");
+    let v = engine.riddimOpts.groove[key];
+    const paint = () => { sf.style.width = v * 100 + "%"; st.textContent = v.toFixed(2); };
+    drag(row.querySelector(".slider"), () => v, (nv, live) => {
+      v = clamp(nv, 0, 1); paint();
+      if (!live) engine.setRiddim({ groove: { [key]: v } });
+    }, { axis: "x", scale: 170 });
+    paint();
+    G.appendChild(row);
+  }
+}
+
+const openPanel = (on) => {
+  $("#scrim").dataset.open = on ? "1" : "0";
+  $("#riddim").dataset.open = on ? "1" : "0";
+  if (on) buildRiddimPanel();
+};
+$("#riddimbtn").onclick = () => openPanel($("#riddim").dataset.open !== "1");
+$("#scrim").onclick = () => openPanel(false);
+window.addEventListener("keydown", (e) => { if (e.key === "Escape") openPanel(false); });
+
 // ── boot ──────────────────────────────────────────────────────────────────────
 $("#f-seed").textContent = OPTS.seed;
 $("#f-bpm").textContent = OPTS.bpm;
@@ -469,6 +544,7 @@ $("#f-key").textContent = `${OPTS.tonic} minor`;
 $("#f-prog").textContent = OPTS.progression;
 $("#f-pat").textContent = OPTS.pattern;
 $("#f-noise").textContent = `synth · ${OPTS.noiseType}`;
+$("#f-kick").textContent = "synth";
 $("#chnote").textContent = "seed / bpm / key are set at boot — ?seed=7&bpm=125&type=vinyl";
 
 const play = $("#play");
@@ -485,6 +561,7 @@ bootEngine(ctx, { ...OPTS, onSection }).then((e) => {
   window.dubsynth = { ctx, engine, rig: e.rig, DUB_RIG };
   tapMeters();
   buildDetail();
+  buildRiddimPanel();
   play.disabled = false;
   $("#statelabel").textContent = "ready — press play";
 }).catch((err) => {

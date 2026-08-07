@@ -50,6 +50,9 @@ const { planPerformance } = await import("./perform.js");
 const { makeRiddim } = await import("./riddim.js");
 const { makeVoices } = await import("./voices.js");
 const { makeNoiseBed } = await import("./corpus.js");
+const { findKick } = await import("./kicks.js");
+const { decodeWav: decodeWavFile } = await import("./core/wav.js");
+const { readFileSync: readFile } = await import("node:fs");
 const { masterChain, measure } = await import("./master.js");
 
 const argv = Object.fromEntries(process.argv.slice(2).map((a) => {
@@ -61,6 +64,7 @@ const SEED = Number(argv.seed ?? 7);
 const OUT = argv.out ?? "/tmp/dub.wav";
 const NOISE = argv.noise ?? "synth";
 const NOISE_TYPE = argv.type ?? "static";
+const KICK = argv.kick ?? "synth";
 const HEADROOM = Boolean(argv.headroom);
 const STEMS = Boolean(argv.stems);
 const RAW = Boolean(argv.raw);
@@ -122,7 +126,20 @@ const ch = (name) => rig.mix.channel(name).input;
 // One persistent voice per part, retriggered — never a graph per note. See
 // voices.js: allocating per hit makes cost per audio-second climb with length,
 // which an endless engine cannot afford.
-const kick = voices.kick(ch("kick"));
+// --kick=synth (the §5 synthesis) or a name from data/kicks.json. A sampled kick
+// is ONE looping bar, not a source per hit — see voices.js for the measurement.
+const kickEntry = findKick(KICK);
+let kick = null;
+if (kickEntry) {
+  const raw = readFile(kickEntry.path);
+  const w = decodeWavFile(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength));
+  const kbuf = ctx.createBuffer(w.channels.length, w.channels[0].length, w.sampleRate);
+  for (let c = 0; c < w.channels.length; c++) kbuf.copyToChannel(w.channels[c], c);
+  kick = voices.sampleKick(ch("kick"), { buffer: kbuf, steps: riddim.kickSteps(), bar: BAR });
+  kick.start(0);
+} else {
+  kick = voices.kick(ch("kick"));
+}
 const bass = voices.bass(ch("bass"));
 const hat = voices.hat(ch("hat"));
 const shaker = voices.shaker(ch("shaker"));
@@ -140,9 +157,12 @@ for (let bar = 0; bar < bars; bar++) {
   const t0 = bar * BAR;
   const stepAt = (n) => t0 + n * STEP;
 
-  for (const n of riddim.kickSteps()) {
-    if (stepAt(n) >= SECONDS) continue;
-    kick.at(stepAt(n));
+  // The sampled kick is a loop; only the synthesized one is triggered per step.
+  if (kick.kind !== "loop") {
+    for (const n of riddim.kickSteps()) {
+      if (stepAt(n) >= SECONDS) continue;
+      kick.at(stepAt(n));
+    }
   }
   for (const n of riddim.hatSteps()) if (stepAt(n) < SECONDS) hat.at(stepAt(n));
   for (const n of riddim.shakerSteps()) if (stepAt(n) < SECONDS) shaker.at(stepAt(n));
@@ -248,6 +268,7 @@ const beatEnv = (periodSec) => {
 console.log(`dub_synth — ${mmss(SECONDS)} @ ${BPM} BPM, seed ${SEED}`);
 console.log(`  sections      ${sections.length} (${gestureCount} gestures)`);
 console.log(`  noise         ${bed.describe()}`);
+console.log(`  kick          ${kickEntry ? `${kickEntry.name} (${kickEntry.ms} ms, ${Math.round(kickEntry.lowShare*100)}% under 350 Hz)` : "synthesized"}`);
 console.log(`  pre-master    peak ${beforeMaster.peakDb.toFixed(2)} dBFS, crest ${beforeMaster.crest.toFixed(2)} dB`);
 if (mastered) {
   console.log(`  glue          ${mastered.glue.maxReductionDb.toFixed(2)} dB max reduction, ${mastered.glue.makeupDb.toFixed(2)} dB makeup`);

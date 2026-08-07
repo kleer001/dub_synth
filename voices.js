@@ -14,12 +14,24 @@
 //            because its high end is deliberately weakened.
 //
 // **Every voice is a persistent graph that is retriggered, never a graph built
-// per note.** This is a hard requirement for an engine meant to run without end.
-// Allocating nodes per hit means the node count grows without bound and the
-// render loop revisits every one of them each block, so cost per second of audio
-// climbs the longer you play — measured here at roughly 5x the sum of its parts
-// after only 30 seconds. A fixed pool of oscillators and one looping noise
-// buffer, with envelopes and pitches scheduled onto them, is flat instead.
+// per note.** This is a hard requirement for an engine meant to run without end,
+// and it is a measurement rather than a preference. Scheduling a node per hit
+// means the graph keeps every node it was ever given — nothing frees a source
+// that has finished — so cost per second of audio climbs with length. Playing a
+// 4/4 kick at 125 BPM one node per hit, against the persistent oscillator voice:
+//
+//              30 s     120 s    300 s      (ms of CPU per audio second)
+//   persistent 1.15     1.18     1.14       flat
+//   per hit    4.99    19.84    40.74       ~36x by five minutes
+//
+// Chrome measures the same shape (6.9 / 22.0 / 55.5), so this is not an artefact
+// of the offline renderer. An endless engine cannot pay it.
+//
+// The rule is therefore not "never play samples" — it is that a repeating part
+// must not be expressed as a stream of events. Where a pattern is fixed, stamp it
+// into a bar-length buffer and loop one node over it; see sampleKick below, which
+// plays a sampled kick at flat cost. Where a part genuinely varies per hit, it
+// needs a persistent graph with its envelope scheduled, like the voices here.
 //
 // The consequence to respect: one voice cannot overlap itself. At this genre's
 // tempo and decay times nothing does — the closest call is the shaker at 16ths
@@ -112,6 +124,78 @@ export function makeVoices(ctx, { rng, seconds, beat = 0.48 } = {}) {
           strike(g.gain, t, peak, 0.003, 0.30);
           if (rg) strike(rg.gain, t + 0.01, rumble, 0.02, Math.min(rumbleDecay, beat * 0.8));
         },
+      };
+    },
+
+    // A sampled kick, as ONE looping node rather than a source per hit.
+    //
+    // A source per hit is the obvious way to play a sample and it is measurably
+    // wrong here. An AudioBufferSourceNode cannot be restarted, so every hit
+    // needs a new one, and a scheduled-ahead source is never freed — the graph
+    // keeps every one it was given. Measured at 125 BPM, one source per kick
+    // against the persistent oscillator above:
+    //
+    //             30 s     120 s    300 s     (ms of CPU per audio second)
+    //   synth     1.15     1.18     1.14      flat
+    //   per-hit   4.99    19.84    40.74      climbing, ~36x by five minutes
+    //
+    // and Chrome measures the same shape (6.9 / 22.0 / 55.5). So the rule in
+    // this file's header is not a style preference, it is that table.
+    //
+    // The way out is to stop treating a fixed pattern as a series of events. The
+    // kick pattern is one bar that repeats (§3 — the riddim is a fixed frame), so
+    // the sample is stamped into a bar-length buffer at its step positions and
+    // played by a single looping source. Cost is then flat and independent of
+    // length, like every other voice here.
+    //
+    // What it gives up: per-hit variation. That is the correct trade for this
+    // part — the kick is the axis the rest shapes around, not a thing that
+    // varies — and a pattern change rebuilds the buffer, which is a riddim-level
+    // move rather than a per-note one.
+    sampleKick(dest, { buffer, steps = [0, 4, 8, 12], bar, peak = 0.9 } = {}) {
+      if (!buffer) throw new Error("sampleKick needs a decoded AudioBuffer");
+      if (!(bar > 0)) throw new Error("sampleKick needs the bar length in seconds");
+      const sr = ctx.sampleRate;
+      const stepSec = bar / 16;
+
+      const build = (pattern) => {
+        const frames = Math.round(bar * sr);
+        const loop = ctx.createBuffer(1, frames, sr);
+        const outCh = loop.getChannelData(0);
+        // Mono-sum the source: the kick is centred and the sub must not smear.
+        const src = buffer.getChannelData(0);
+        const src2 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : null;
+        for (const s of pattern) {
+          const at = Math.round(s * stepSec * sr);
+          for (let i = 0; i < src.length && at + i < frames; i++) {
+            outCh[at + i] += src2 ? (src[i] + src2[i]) * 0.5 : src[i];
+          }
+        }
+        return loop;
+      };
+
+      const g = ctx.createGain(); g.gain.value = peak;
+      g.connect(dest);
+      let src = null;
+      let pattern = steps.slice();
+
+      const startAt = (t) => {
+        if (src) { try { src.stop(); src.disconnect(); } catch (_) {} }
+        src = ctx.createBufferSource();
+        src.buffer = build(pattern);
+        src.loop = true;
+        src.connect(g);
+        src.start(t);
+      };
+
+      return {
+        kind: "loop",
+        gain: g.gain,
+        // Started once against the bar grid; there is nothing to trigger after.
+        start(t = 0) { startAt(t); return this; },
+        // A pattern change rebuilds the bar and restarts it on the next bar line.
+        setSteps(next, t = 0) { pattern = next.slice(); startAt(t); return this; },
+        stop() { if (src) { try { src.stop(); } catch (_) {} src = null; } return this; },
       };
     },
 
@@ -247,12 +331,17 @@ export function makeVoices(ctx, { rng, seconds, beat = 0.48 } = {}) {
       const sum = ctx.createGain();
       const g = ctx.createGain(); g.gain.value = peak;
 
+      // Kept so the voice can be retired: the pad holds one chord, so changing
+      // the progression means building a new pad and stopping this one. Without
+      // a handle those oscillators would run silently forever.
+      const oscs = [];
       for (const hz of hzs) {
         for (const detune of [-6, 6]) {
           const o = ctx.createOscillator();
           o.type = "sawtooth"; o.frequency.value = hz; o.detune.value = detune;
           o.connect(lp);
           o.start(0);
+          oscs.push(o);
         }
       }
       lp.connect(clean).connect(sum);
@@ -263,7 +352,13 @@ export function makeVoices(ctx, { rng, seconds, beat = 0.48 } = {}) {
       if (rng && seconds) {
         randomWalk(lp.frequency, { rng, rate: 0.05, min: 320, max: 1500, smooth: 1, seconds });
       }
-      return { walks, cutoff: lp.frequency, level: g.gain };
+      return {
+        walks, cutoff: lp.frequency, level: g.gain,
+        dispose(at = 0) {
+          for (const o of oscs) { try { o.stop(at); } catch (_) {} }
+          try { g.disconnect(); } catch (_) {}
+        },
+      };
     },
   };
 }

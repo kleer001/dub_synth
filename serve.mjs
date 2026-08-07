@@ -23,6 +23,10 @@ import { fileURLToPath } from "node:url";
 import { createConnection } from "node:net";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
+// The sample library is mounted, not copied: data/*.json manifests travel with
+// the repo and the audio stays on its volume (see corpus.js). Dev-only, and it
+// is why this server binds to loopback.
+const SAMPLES = process.env.DUB_SAMPLES ?? "/media/menser/larg/Music/samples";
 const WANTED = Number(process.argv.find((a) => a.startsWith("--port="))?.split("=")[1] ?? 8080);
 
 const TYPES = {
@@ -31,6 +35,8 @@ const TYPES = {
   ".mjs": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".wav": "audio/wav",
+  ".aif": "audio/aiff",
+  ".aiff": "audio/aiff",
   ".css": "text/css; charset=utf-8",
   ".svg": "image/svg+xml",
 };
@@ -50,10 +56,12 @@ const port = await freePort(WANTED);
 createServer((req, res) => {
   const url = decodeURIComponent(req.url.split("?")[0]);
   const rel = normalize(url === "/" ? "/ui/index.html" : url).replace(/^(\.\.[/\\])+/, "");
-  const file = join(ROOT, rel);
+  const mounted = rel.startsWith("/samples/") || rel.startsWith("samples/");
+  const base = mounted ? SAMPLES : ROOT;
+  const file = join(base, mounted ? rel.replace(/^\/?samples\//, "") : rel);
 
-  // Serving the repo means serving source; keep it inside the repo and nothing else.
-  if (!file.startsWith(ROOT)) { res.writeHead(403).end("outside the repo"); return; }
+  // Keep every request inside the tree it was resolved against.
+  if (!file.startsWith(base)) { res.writeHead(403).end("outside the served tree"); return; }
 
   let st;
   try { st = statSync(file); } catch { res.writeHead(404).end(`404 ${rel}`); return; }
