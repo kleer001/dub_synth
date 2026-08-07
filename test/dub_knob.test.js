@@ -6,8 +6,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { makeRng } from "../core/rng.js";
-import { randomWalk, ride } from "../dsp/knob.js";
+import { makeRng } from "../engine/core/rng.js";
+import { randomWalk, ride } from "../engine/dsp/knob.js";
 
 // Records automation calls the way an AudioParam would receive them.
 function stubParam(initial = 0) {

@@ -9,11 +9,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { makeRng } from "../core/rng.js";
-import { DUB_RIG } from "../rig.js";
-import { GESTURES } from "../gesture.js";
-import { activeAt, planPerformance, STATES } from "../perform.js";
-import { GROOVE_OPS, makeRiddim, PROGRESSIONS } from "../riddim.js";
+import { makeRng } from "../engine/core/rng.js";
+import { DUB_RIG } from "../engine/rig.js";
+import { GESTURES } from "../engine/gesture.js";
+import { activeAt, planPerformance, STATES } from "../engine/perform.js";
+import { GROOVE_OPS, makeRiddim, PROGRESSIONS } from "../engine/riddim.js";
 
 const plan = (seed, seconds = 900) =>
   planPerformance({ rng: makeRng(seed), spec: DUB_RIG, seconds });

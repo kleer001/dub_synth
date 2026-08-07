@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dub_synth — an endless dub techno engine</title>
+<style>
+:root{
+  --bg:#eceae5; --panel:#fbfaf8; --line:#d6d2c8; --line-2:#c3beb1;
+  --ink:#1c1b19; --ink-2:#5f5c55; --ink-3:#918d84; --accent:#1f5f8b; --hot:#c8553d;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink); padding:clamp(20px,5vw,64px) 20px;
+  font:15px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+main{max-width:720px; margin:0 auto}
+h1{font:600 30px/1.15 ui-sans-serif,sans-serif; letter-spacing:-.02em}
+h1 small{display:block; font:400 11px/1.5 var(--mono); color:var(--ink-3); letter-spacing:.1em; text-transform:uppercase; margin-top:8px}
+p{margin:16px 0; color:var(--ink-2)}
+p strong{color:var(--ink); font-weight:600}
+a{color:var(--accent)}
+.cta{
+  display:inline-block; margin:24px 0 8px; padding:13px 22px; border-radius:4px;
+  background:var(--accent); color:#fff; text-decoration:none;
+  font:600 13px/1 ui-sans-serif,sans-serif; letter-spacing:.06em;
+}
+.cta:hover{background:#17496b}
+.hint{font:400 11px/1.5 var(--mono); color:var(--ink-3); margin:8px 0 28px}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:5px; padding:16px 18px; margin:20px 0}
+.card h2{font:600 10px/1 ui-sans-serif,sans-serif; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-2); margin-bottom:10px}
+code{font-family:var(--mono); font-size:12.5px; background:#e4e1da; padding:1px 5px; border-radius:2px}
+pre{background:#e4e1da; padding:12px 14px; border-radius:4px; overflow-x:auto; margin:10px 0}
+pre code{background:none; padding:0}
+ul{margin:12px 0 12px 20px; color:var(--ink-2)}
+li{margin:6px 0}
+footer{margin-top:36px; padding-top:18px; border-top:1px solid var(--line); font:400 12px/1.6 var(--mono); color:var(--ink-3)}
+</style>
+</head>
+<body>
+<main>
+  <h1>dub_synth<small>an endless dub techno engine</small></h1>
+
+  <p>
+    The genre's own account of itself is that composition happens at the <strong>mixer</strong>,
+    not on a grid: one bar of riddim repeats unchanged while a hand rides feedback, filters,
+    sends and mutes over it. So the composable unit here is a gesture on a channel, and
+    long-form structure is made by taking things away.
+  </p>
+
+  <a class="cta" href="./ui/">Open the desk →</a>
+  <p class="hint">
+    Web Audio, so it needs a click before it makes a sound. Runs forever; nothing repeats.
+  </p>
+
+  <div class="card">
+    <h2>What it is</h2>
+    <p style="margin-top:0">
+      Every design decision traces to a measured source rather than to genre intuition —
+      echo parameters with numbers, six notated track analyses, and the section timings the
+      long-form model is derived from. Where the source gives a figure, the code carries it and
+      cites the section at the point of use.
+    </p>
+    <ul>
+      <li>Three stab layers, each with its own echo, because the call-and-response comes from their decays intersecting</li>
+      <li>A feedback walk anchored to the eighth note and deliberately detuned off it, so it never locks to the grid</li>
+      <li>No sidechain ducking — the wet sits under the dry by level, which is a source decision</li>
+      <li>Sections of minutes, spaced irregularly, with the drop made by removal</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Run it locally</h2>
+    <pre><code>git clone https://github.com/kleer001/dub_synth
+cd dub_synth &amp;&amp; npm install
+npm run desk                  # the live desk
+npm run render -- --seconds=300 --out=/tmp/dub.wav</code></pre>
+    <p style="margin-bottom:0">
+      The hosted desk plays the synthesized kick. The sampled kicks need a local sample
+      library, which the dev server mounts and the repo does not vendor.
+    </p>
+  </div>
+
+  <footer>
+    Built to the measurable layer of Bahadırhan Koçer, <em>Dub Techno as Orphic Experience</em>
+    (M.A., İstanbul Technical University, 2023) —
+    <a href="https://polen.itu.edu.tr/items/2205c9a9-6bbd-48d9-a382-afc55fa26803">open access at İTÜ DSpace</a>.<br>
+    <a href="https://github.com/kleer001/dub_synth">Source on GitHub</a> · MIT
+  </footer>
+</main>
+</body>
+</html>

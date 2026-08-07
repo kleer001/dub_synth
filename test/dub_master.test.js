@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { glue, limit, masterChain, measure, normalize, truePeak } from "../master.js";
+import { glue, limit, masterChain, measure, normalize, truePeak } from "../engine/master.js";
 
 const SR = 48000;
 const dB = (x) => 20 * Math.log10(Math.max(1e-12, x));

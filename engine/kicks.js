@@ -9,7 +9,7 @@
 // not. Nothing here reads the disk — decoding differs between Node and a browser,
 // so each caller hands in bytes and the shared part is only the index.
 
-import manifest from "./data/kicks.json" with { type: "json" };
+import manifest from "../data/kicks.json" with { type: "json" };
 
 export const KICKS = manifest.entries;
 export const kickRoot = manifest.root;

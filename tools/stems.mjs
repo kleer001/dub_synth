@@ -26,15 +26,15 @@ catch { console.error("needs node-web-audio-api (dev only)"); process.exit(1); }
   }
 }
 
-const { makeRng } = await import("./core/rng.js");
-const { knobRates } = await import("./dsp/knob.js");
-const { DUB_RIG, buildRig } = await import("./rig.js");
-const { applyAll } = await import("./gesture.js");
-const { planPerformance } = await import("./perform.js");
-const { makeRiddim } = await import("./riddim.js");
-const { makeVoices } = await import("./voices.js");
-const { makeNoiseBed } = await import("./corpus.js");
-const { measure } = await import("./master.js");
+const { makeRng } = await import("../engine/core/rng.js");
+const { knobRates } = await import("../engine/dsp/knob.js");
+const { DUB_RIG, buildRig } = await import("../engine/rig.js");
+const { applyAll } = await import("../engine/gesture.js");
+const { planPerformance } = await import("../engine/perform.js");
+const { makeRiddim } = await import("../engine/riddim.js");
+const { makeVoices } = await import("../engine/voices.js");
+const { makeNoiseBed } = await import("../engine/corpus.js");
+const { measure } = await import("../engine/master.js");
 
 const argv = Object.fromEntries(process.argv.slice(2).map((a) => {
   const [k, v] = a.replace(/^--/, "").split("=");

@@ -39,21 +39,21 @@ catch { console.error("dub_synth/render.mjs needs node-web-audio-api (dev only):
   }
 }
 
-const { makeRng } = await import("./core/rng.js");
-const { knobRates } = await import("./dsp/knob.js");
-const { stats } = await import("./core/metrics.js");
-const { magnitude } = await import("./core/dsp.js");
-const { encodeWav } = await import("./core/wav.js");
-const { DUB_RIG, buildRig } = await import("./rig.js");
-const { applyAll } = await import("./gesture.js");
-const { planPerformance } = await import("./perform.js");
-const { makeRiddim } = await import("./riddim.js");
-const { makeVoices } = await import("./voices.js");
-const { makeNoiseBed } = await import("./corpus.js");
-const { findKick } = await import("./kicks.js");
-const { decodeWav: decodeWavFile } = await import("./core/wav.js");
+const { makeRng } = await import("../engine/core/rng.js");
+const { knobRates } = await import("../engine/dsp/knob.js");
+const { stats } = await import("../engine/core/metrics.js");
+const { magnitude } = await import("../engine/core/dsp.js");
+const { encodeWav } = await import("../engine/core/wav.js");
+const { DUB_RIG, buildRig } = await import("../engine/rig.js");
+const { applyAll } = await import("../engine/gesture.js");
+const { planPerformance } = await import("../engine/perform.js");
+const { makeRiddim } = await import("../engine/riddim.js");
+const { makeVoices } = await import("../engine/voices.js");
+const { makeNoiseBed } = await import("../engine/corpus.js");
+const { findKick } = await import("../engine/kicks.js");
+const { decodeWav: decodeWavFile } = await import("../engine/core/wav.js");
 const { readFileSync: readFile } = await import("node:fs");
-const { masterChain, measure } = await import("./master.js");
+const { masterChain, measure } = await import("../engine/master.js");
 
 const argv = Object.fromEntries(process.argv.slice(2).map((a) => {
   const [k, v] = a.replace(/^--/, "").split("=");

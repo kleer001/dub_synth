@@ -26,7 +26,7 @@ import { decodeWav } from "./core/wav.js";
 import { NOISE_TYPES, synthBed } from "./noise.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const MANIFEST = join(HERE, "data", "noise_corpus.json");
+const MANIFEST = join(HERE, "..", "data", "noise_corpus.json");
 
 export { NOISE_TYPES, synthBed };
 

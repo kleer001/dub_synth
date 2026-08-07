@@ -6,13 +6,14 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "render": "node render.mjs",
-    "plan": "node render.mjs --plan",
-    "headroom": "node render.mjs --headroom",
-    "stems": "node stems.mjs",
-    "scan-samples": "node scan_samples.mjs",
-    "test": "node --test test/",
-    "desk": "node serve.mjs"
+    "desk": "node tools/serve.mjs",
+    "render": "node tools/render.mjs",
+    "plan": "node tools/render.mjs --plan",
+    "headroom": "node tools/render.mjs --headroom",
+    "stems": "node tools/stems.mjs",
+    "scan-kicks": "node tools/scan_kicks.mjs",
+    "scan-samples": "node tools/scan_samples.mjs",
+    "test": "node --test test/"
   },
   "devDependencies": {
     "node-web-audio-api": "^2.0.0"

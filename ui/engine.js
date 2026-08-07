@@ -19,16 +19,16 @@
 // the echo goes static. Here the next chunk re-arms it, so a throw is a gesture
 // over the walk instead of the end of it.
 
-import { makeRng } from "../core/rng.js";
-import { DUB_RIG, buildRig } from "../rig.js";
-import { applyGesture } from "../gesture.js";
-import { performance as sections } from "../perform.js";
-import { makeRiddim } from "../riddim.js";
-import { findKick, kickUrl } from "../kicks.js";
-import { armVoiceWalks, makeVoices } from "../voices.js";
-import { synthBed } from "../noise.js";
-import { loadPitchWorklet } from "../dsp/fx.js";
-import { knobRates, ride } from "../dsp/knob.js";
+import { makeRng } from "../engine/core/rng.js";
+import { DUB_RIG, buildRig } from "../engine/rig.js";
+import { applyGesture } from "../engine/gesture.js";
+import { performance as sections } from "../engine/perform.js";
+import { makeRiddim } from "../engine/riddim.js";
+import { findKick, kickUrl } from "../engine/kicks.js";
+import { armVoiceWalks, makeVoices } from "../engine/voices.js";
+import { synthBed } from "../engine/noise.js";
+import { loadPitchWorklet } from "../engine/dsp/fx.js";
+import { knobRates, ride } from "../engine/dsp/knob.js";
 
 // How far ahead to schedule, and how often to wake. The window has to comfortably
 // exceed the timer's worst-case lateness or a note lands in the past and Web

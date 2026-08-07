@@ -31,8 +31,8 @@ import { readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { decodeWav } from "./core/wav.js";
-import { magnitude } from "./core/dsp.js";
+import { decodeWav } from "../engine/core/wav.js";
+import { magnitude } from "../engine/core/dsp.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const argv = Object.fromEntries(process.argv.slice(2).map((a) => {
@@ -40,7 +40,7 @@ const argv = Object.fromEntries(process.argv.slice(2).map((a) => {
   return [k, v === undefined ? true : v];
 }));
 const ROOT = argv.root ?? "/media/menser/larg/Music/samples";
-const OUT = join(HERE, "data", "noise_corpus.json");
+const OUT = join(HERE, "..", "data", "noise_corpus.json");
 
 // Name rules propose a type. They are a shortlist, not a verdict.
 const RULES = [

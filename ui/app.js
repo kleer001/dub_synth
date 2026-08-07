@@ -11,10 +11,10 @@
 // 0.11 Hz — rates no hand can play. The walks are shown, and can be overridden by
 // grabbing them, but they are not something you dial.
 
-import { DUB_RIG } from "../rig.js";
+import { DUB_RIG } from "../engine/rig.js";
 import { bootEngine } from "./engine.js";
-import { KICKS } from "../kicks.js";
-import { DRUM_PATTERNS, PROGRESSIONS } from "../riddim.js";
+import { KICKS } from "../engine/kicks.js";
+import { DRUM_PATTERNS, PROGRESSIONS } from "../engine/riddim.js";
 
 const q = new URLSearchParams(location.search);
 const OPTS = {

@@ -22,7 +22,7 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createConnection } from "node:net";
 
-const ROOT = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 // The sample library is mounted, not copied: data/*.json manifests travel with
 // the repo and the audio stays on its volume (see corpus.js). Dev-only, and it
 // is why this server binds to loopback.
@@ -55,7 +55,7 @@ const port = await freePort(WANTED);
 
 createServer((req, res) => {
   const url = decodeURIComponent(req.url.split("?")[0]);
-  const rel = normalize(url === "/" ? "/ui/index.html" : url).replace(/^(\.\.[/\\])+/, "");
+  const rel = normalize(url === "/" ? "/index.html" : url).replace(/^(\.\.[/\\])+/, "");
   const mounted = rel.startsWith("/samples/") || rel.startsWith("samples/");
   const base = mounted ? SAMPLES : ROOT;
   const file = join(base, mounted ? rel.replace(/^\/?samples\//, "") : rel);
@@ -63,19 +63,26 @@ createServer((req, res) => {
   // Keep every request inside the tree it was resolved against.
   if (!file.startsWith(base)) { res.writeHead(403).end("outside the served tree"); return; }
 
-  let st;
-  try { st = statSync(file); } catch { res.writeHead(404).end(`404 ${rel}`); return; }
-  if (st.isDirectory()) { res.writeHead(404).end(`404 ${rel} is a directory`); return; }
+  let st, target = file;
+  try { st = statSync(target); } catch { res.writeHead(404).end(`404 ${rel}`); return; }
+  // Serve a directory's index.html, the way GitHub Pages does — otherwise /ui/
+  // works when deployed and 404s here, which is the wrong way round for a dev
+  // server to differ from production.
+  if (st.isDirectory()) {
+    target = join(target, "index.html");
+    try { st = statSync(target); } catch { res.writeHead(404).end(`404 ${rel} is a directory`); return; }
+  }
 
   res.writeHead(200, {
-    "content-type": TYPES[extname(file)] ?? "application/octet-stream",
+    "content-type": TYPES[extname(target)] ?? "application/octet-stream",
     "content-length": st.size,
     // The whole point: an edit is visible on the next reload, always.
     "cache-control": "no-store, must-revalidate",
   });
-  createReadStream(file).pipe(res);
+  createReadStream(target).pipe(res);
 }).listen(port, "127.0.0.1", () => {
   if (port !== WANTED) console.log(`port ${WANTED} was busy — moved up to ${port}`);
-  console.log(`dub_synth desk → http://127.0.0.1:${port}/ui/index.html`);
+  console.log(`dub_synth → http://127.0.0.1:${port}/        (landing)`);
+  console.log(`           → http://127.0.0.1:${port}/ui/    (the desk)`);
   console.log(`  ?seed=7&bpm=125&type=vinyl&worklet=0   (worklet=0 forces the granular pitch shifter)`);
 });

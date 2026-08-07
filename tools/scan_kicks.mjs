@@ -20,7 +20,7 @@
 import { readFileSync, readdirSync, writeFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { decodeWav } from "./core/wav.js";
+import { decodeWav } from "../engine/core/wav.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const argv = Object.fromEntries(process.argv.slice(2).map((a) => {
@@ -29,7 +29,7 @@ const argv = Object.fromEntries(process.argv.slice(2).map((a) => {
 }));
 const ROOT = argv.root ?? process.env.DUB_SAMPLES ?? "/media/menser/larg/Music/samples";
 const TOP = Number(argv.top ?? 12);
-const OUT = join(HERE, "data", "kicks.json");
+const OUT = join(HERE, "..", "data", "kicks.json");
 
 function* walk(dir, depth = 0) {
   if (depth > 6) return;

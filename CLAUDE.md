@@ -14,16 +14,18 @@ Headless Node, zero runtime dependencies, everything driven through an `OfflineA
 ## Commands
 
 ```bash
+npm run desk                      # the live browser desk, served from the repo root
 npm run render -- --seconds=300 --seed=7 --out=/tmp/dub.wav
-npm run render -- --plan          # section plan, no audio
-npm run render -- --headroom      # measure the master trim the rig should carry
-npm run render -- --raw           # skip the bounce-time mastering pass
+npm run plan                      # section plan, no audio
+npm run headroom                  # measure the master trim the rig should carry
 npm run stems                     # solo every channel and bus, report each contribution
+npm run scan-kicks                # re-index a sample library for the kick shelf
 npm run scan-samples              # re-index the sample library for the noise layer
-npm test                          # node --test test/**/*.test.js — pure logic, no audio context
+npm test                          # node --test test/ — pure logic, no audio context
 ```
 
-`render.mjs` also takes `--noise=synth|sample --type=static|vinyl|soundscape --bpm=N`.
+`tools/render.mjs` also takes `--noise=synth|sample --type=static|vinyl|soundscape --bpm=N
+--kick=<name> --raw`. The desk takes `?seed=&bpm=&type=&worklet=0` as URL parameters.
 
 ## The specification is a document, not taste
 
@@ -43,18 +45,30 @@ re-fetch it into `research/sources/` from
 ## Architecture
 
 ```
-render.mjs   the harness: rig → performance plan → riddim → render → master → measure
-stems.mjs    the mix diagnostic; use it before changing any level
-rig.js       DUB_RIG: channels, sends, bus returns, master trim — the desk as data
-gesture.js   the gesture vocabulary; gestures are plain data so a plan is inspectable
-perform.js   a generator that yields sections forever (this is what "endless" means)
-riddim.js    the dry frame — patterns, progressions, groove operators
-voices.js    sound sources as persistent, retriggered graphs
-corpus.js    the noise layer, sample or synth, chosen explicitly
-master.js    bounce-time glue + look-ahead limiter, pure DSP over Float32Arrays
-dsp/         echo, spaces, mixer, knob, lfo, and the full effect library + 3 worklets
-core/        seeded RNG, DSP/FFT, music theory, WAV, measurement
+index.html      the public landing page (GitHub Pages serves the repo root)
+ui/             the live desk
+  index.html      layout and styles
+  app.js          the controls, bound to real AudioParams
+  engine.js       the realtime scheduler — the one part render.mjs cannot share
+engine/         the instrument, all of it importable in both Node and a browser
+  rig.js          DUB_RIG: channels, sends, bus returns, master trim — the desk as data
+  gesture.js      the gesture vocabulary; gestures are plain data so a plan is inspectable
+  perform.js      a generator that yields sections forever (this is what "endless" means)
+  riddim.js       the dry frame — patterns, progressions, groove operators
+  voices.js       sound sources as persistent, retriggered graphs
+  corpus.js       the sampled noise layer (reads the disk, so Node only)
+  noise.js        the synthesized noise layer (browser-safe)
+  kicks.js        the kick shelf index
+  master.js       bounce-time glue + look-ahead limiter, pure DSP over Float32Arrays
+  dsp/            echo, spaces, mixer, knob, lfo, and the full effect library + 3 worklets
+  core/           seeded RNG, DSP/FFT, music theory, WAV, measurement
+tools/          render.mjs, stems.mjs, serve.mjs, scan_kicks.mjs, scan_samples.mjs
+data/           committed manifests; the audio they point at is never vendored
 ```
+
+Anything under `engine/` must import cleanly in a browser — that is what lets the desk and the
+renderer be the same instrument. `corpus.js` is the one exception and is Node-only by design,
+which is why the synthesized beds live apart in `noise.js`.
 
 ## Load-bearing constraints
 
@@ -63,10 +77,14 @@ Break any of these and something that currently works will quietly stop.
 - **Offline-renderable is non-negotiable.** No browser-only node in a required path. Worklets may
   be *preferred* but must degrade to native nodes, because an `OfflineAudioContext` has no
   `audioWorklet`.
-- **Never allocate audio nodes per note.** Voices are persistent graphs whose envelopes and
-  pitches are scheduled. Per-hit allocation makes render cost climb with length — measured at ~5×
-  the sum of its parts after 30 seconds — which an endless engine cannot afford. The tradeoff to
-  respect: a voice cannot overlap itself.
+- **Never express a repeating part as a stream of events.** Scheduling one node per hit means
+  the graph keeps every node it was ever given, so cost per audio-second climbs with length:
+  measured on a 4/4 kick at 1.15 / 1.18 / 1.14 ms per audio second for a persistent voice
+  against 4.99 / 19.84 / 40.74 at 30 / 120 / 300 s for one source per hit — ~36× by five
+  minutes, and Chrome measures the same shape. Voices are persistent graphs whose envelopes are
+  scheduled; a fixed pattern is stamped into a bar-length buffer and looped by a single node
+  (`voices.sampleKick`). The tradeoffs to respect: a voice cannot overlap itself, and a looped
+  pattern gives up per-hit variation.
 - **Determinism.** Same seed → byte-identical WAV. `core/dsp.js` seeds its noise from its own
   parameters (FNV-1a over the arguments), and `render.mjs` derives four independent streams from
   the seed (plan, knobs, notes, impulses) so editing one layer does not reshuffle the others and
@@ -82,7 +100,10 @@ Break any of these and something that currently works will quietly stop.
 Levels are derived, not guessed.
 
 1. `npm run stems` — solos every channel and bus and reports rms / peak / crest / share. Use it
-   before changing a level. It is what located every mix fault so far.
+   before changing a level. It is what located every mix fault so far. Both it and `--headroom`
+   route around the master's tanh, because a WaveShaper clamps its input to [-1, 1] whatever
+   its curve says — measured through one, everything over full scale reads as exactly 0 dBFS
+   and an element pushing past the ceiling is invisible.
 2. `npm run render -- --headroom` — flattens the master bus, measures the p99.9 *sustained* level,
    and prints the `DUB_RIG.master` trim to paste back. **Re-run after any change to channels,
    buses, returns or voices.**
