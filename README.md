@@ -90,7 +90,8 @@ so it gets the space a piano roll would get elsewhere.
   and how much the groove breathes. Changes land on the next bar line.
 
 Sampled kicks need a local sample library, which the dev server mounts and the repo does not
-vendor. The hosted desk plays the synthesized kick.
+vendor — WAV and AIFF are both decoded in-repo, so the shelf is not limited to whichever format
+a pack happens to ship. The hosted desk plays the synthesized kick.
 
 ## Layout
 
@@ -107,7 +108,7 @@ engine/        the instrument
   kicks.js       the kick shelf
   master.js      bounce-time glue + look-ahead limiter, pure DSP over Float32Arrays
   dsp/           echo, spaces, mixer, knob, lfo, the effect library and 3 worklets
-  core/          seeded RNG, DSP/FFT, music theory, WAV, measurement
+  core/          seeded RNG, DSP/FFT, music theory, WAV + AIFF, resampling, measurement
 tools/         render, stems, serve, and the sample scanners
 research/      the digest the whole thing is built to
 data/          committed manifests; the audio they point at is not vendored

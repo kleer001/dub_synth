@@ -51,7 +51,7 @@ const { makeRiddim } = await import("../engine/riddim.js");
 const { makeVoices } = await import("../engine/voices.js");
 const { makeNoiseBed } = await import("../engine/corpus.js");
 const { findKick } = await import("../engine/kicks.js");
-const { decodeWav: decodeWavFile } = await import("../engine/core/wav.js");
+const { decodeAudio, toAudioBuffer } = await import("../engine/core/audio.js");
 const { readFileSync: readFile } = await import("node:fs");
 const { masterChain, measure } = await import("../engine/master.js");
 
@@ -132,9 +132,8 @@ const kickEntry = findKick(KICK);
 let kick = null;
 if (kickEntry) {
   const raw = readFile(kickEntry.path);
-  const w = decodeWavFile(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength));
-  const kbuf = ctx.createBuffer(w.channels.length, w.channels[0].length, w.sampleRate);
-  for (let c = 0; c < w.channels.length; c++) kbuf.copyToChannel(w.channels[c], c);
+  const decoded = decodeAudio(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength));
+  const kbuf = toAudioBuffer(ctx, decoded);
   kick = voices.sampleKick(ch("kick"), { buffer: kbuf, steps: riddim.kickSteps(), bar: BAR });
   kick.start(0);
 } else {

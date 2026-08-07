@@ -20,7 +20,7 @@
 import { readFileSync, readdirSync, writeFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { decodeWav } from "../engine/core/wav.js";
+import { decodeAudio } from "../engine/core/audio.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const argv = Object.fromEntries(process.argv.slice(2).map((a) => {
@@ -38,7 +38,7 @@ function* walk(dir, depth = 0) {
   for (const e of entries) {
     const p = join(dir, e.name);
     if (e.isDirectory()) yield* walk(p, depth + 1);
-    else if (/\.wav$/i.test(e.name)) yield p;
+    else if (/\.(wav|aiff?)$/i.test(e.name)) yield p;
   }
 }
 
@@ -51,13 +51,13 @@ for (const path of walk(ROOT)) {
   try { st = statSync(path); } catch { continue; }
   if (st.size > 2_000_000) continue;              // a loop, not a one-shot
 
-  let wav;
+  let dec;
   try {
     const raw = readFileSync(path);
-    wav = decodeWav(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength));
+    dec = decodeAudio(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength));
   } catch { continue; }
 
-  const x = wav.channels[0], sr = wav.sampleRate;
+  const x = dec.channels[0], sr = dec.sampleRate;
   if (!x || x.length < 64 || x.length / sr > 2.5) continue;
 
   let peak = 0;
@@ -74,11 +74,11 @@ for (const path of walk(ROOT)) {
   for (let i = 0; i < x.length; i++) { lp = (1 - a) * x[i] + a * lp; lowE += lp * lp; allE += x[i] * x[i]; }
 
   rows.push({
-    name: path.split("/").at(-1).replace(/\.wav$/i, ""),
+    name: path.split("/").at(-1).replace(/\.(wav|aiff?)$/i, ""),
     path,
     ms: Math.round((tail / sr) * 1000),
     sampleRate: sr,
-    channels: wav.channels.length,
+    channels: dec.channels.length,
     lowShare: +(lowE / Math.max(1e-12, allE)).toFixed(3),
     peakDb: +dB(peak).toFixed(1),
   });
@@ -99,4 +99,4 @@ writeFileSync(OUT, JSON.stringify({
 console.log(`scanned ${rows.length} kick one-shots under ${ROOT}`);
 console.log(`kept ${curated.length}:`);
 for (const r of curated) console.log(`  ${String(Math.round(r.lowShare * 100)).padStart(3)}% low  ${String(r.ms).padStart(4)} ms  ${r.name}`);
-console.log(`wrote ${relative(HERE, OUT)}`);
+console.log(`wrote ${relative(join(HERE, ".."), OUT)}`);

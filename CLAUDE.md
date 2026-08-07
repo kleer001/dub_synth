@@ -61,7 +61,7 @@ engine/         the instrument, all of it importable in both Node and a browser
   kicks.js        the kick shelf index
   master.js       bounce-time glue + look-ahead limiter, pure DSP over Float32Arrays
   dsp/            echo, spaces, mixer, knob, lfo, and the full effect library + 3 worklets
-  core/           seeded RNG, DSP/FFT, music theory, WAV, measurement
+  core/           seeded RNG, DSP/FFT, music theory, WAV + AIFF, resampling, measurement
 tools/          render.mjs, stems.mjs, serve.mjs, scan_kicks.mjs, scan_samples.mjs
 data/           committed manifests; the audio they point at is never vendored
 ```
@@ -91,6 +91,10 @@ Break any of these and something that currently works will quietly stop.
   ruin an A/B. Verify with two renders and `cmp`.
 - **No sidechain ducking.** The wet sits under the dry by level (§3's dry backcloth). This is a
   source decision, not a stylistic one.
+- **Sample rates are converted, never assumed.** A library is whatever rate it was recorded at
+  and the context is 48k; copying frames across that gap plays a 44.1 kHz one-shot 8.8% fast and
+  a tone and a half sharp. `core/audio.js` `toAudioBuffer` resamples on the way in, and
+  `voices.sampleKick` throws rather than accept a mismatched buffer.
 - **Reverb impulses are normalised to unit energy** and `ConvolverNode.normalize` is off. Web
   Audio's own flag rescales by the impulse's energy, which is ~40 dB of attenuation on a
   synthesized multi-second IR and makes a bus return level track decay time instead of the fader.

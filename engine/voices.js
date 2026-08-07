@@ -156,6 +156,14 @@ export function makeVoices(ctx, { rng, seconds, beat = 0.48 } = {}) {
       if (!buffer) throw new Error("sampleKick needs a decoded AudioBuffer");
       if (!(bar > 0)) throw new Error("sampleKick needs the bar length in seconds");
       const sr = ctx.sampleRate;
+      // Frames are stamped straight into a bar at the context's rate, so a buffer
+      // at any other rate would play sharp and fast rather than wrong-sounding —
+      // a 44.1 kHz one-shot in a 48 kHz context is 8.8% fast, about a tone and a
+      // half. core/audio.js toAudioBuffer resamples on the way in; this refuses
+      // the case where something skipped it.
+      if (buffer.sampleRate !== sr) {
+        throw new Error(`sampleKick got a ${buffer.sampleRate} Hz buffer in a ${sr} Hz context — resample it first (core/audio.js toAudioBuffer)`);
+      }
       const stepSec = bar / 16;
 
       const build = (pattern) => {

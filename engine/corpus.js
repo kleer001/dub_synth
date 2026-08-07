@@ -22,7 +22,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { decodeWav } from "./core/wav.js";
+import { decodeAudio, toAudioBuffer } from "./core/audio.js";
 import { NOISE_TYPES, synthBed } from "./noise.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -57,10 +57,7 @@ export function loadSample(ctx, entry) {
   let raw;
   try { raw = readFileSync(entry.path); }
   catch (e) { throw new Error(`sample library unreachable: ${entry.path} (${e.code ?? e.message})`); }
-  const wav = decodeWav(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength));
-  const buf = ctx.createBuffer(wav.channels.length, wav.channels[0].length, wav.sampleRate);
-  for (let c = 0; c < wav.channels.length; c++) buf.copyToChannel(wav.channels[c], c);
-  return buf;
+  return toAudioBuffer(ctx, decodeAudio(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength)));
 }
 
 // A looping bed built from a corpus entry. `hpf` keeps the bed out of the sub —

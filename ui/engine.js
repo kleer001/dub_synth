@@ -29,6 +29,7 @@ import { armVoiceWalks, makeVoices } from "../engine/voices.js";
 import { synthBed } from "../engine/noise.js";
 import { loadPitchWorklet } from "../engine/dsp/fx.js";
 import { knobRates, ride } from "../engine/dsp/knob.js";
+import { decodeAudio, toAudioBuffer } from "../engine/core/audio.js";
 
 // How far ahead to schedule, and how often to wake. The window has to comfortably
 // exceed the timer's worst-case lateness or a note lands in the past and Web
@@ -100,8 +101,9 @@ export function createEngine(ctx, opts = {}) {
       kickName = "synth";
       return kickName;
     }
-    const bytes = await (await fetch(kickUrl(entry))).arrayBuffer();
-    const buffer = await ctx.decodeAudioData(bytes);
+    const res = await fetch(kickUrl(entry));
+    if (!res.ok) throw new Error(`kick "${entry.name}" is not reachable (${res.status}) — the sample library is mounted by the dev server, not by GitHub Pages`);
+    const buffer = toAudioBuffer(ctx, decodeAudio(await res.arrayBuffer()));
     if (kickVoice?.kind === "loop") kickVoice.stop();
     kickVoice = voices.sampleKick(ch("kick"), { buffer, steps: riddim.kickSteps(), bar: BAR });
     kickName = entry.name;
