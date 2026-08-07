@@ -24,22 +24,25 @@ import { DUB_RIG, buildRig } from "../rig.js";
 import { applyGesture } from "../gesture.js";
 import { performance as sections } from "../perform.js";
 import { makeRiddim } from "../riddim.js";
-import { makeVoices } from "../voices.js";
+import { armVoiceWalks, makeVoices } from "../voices.js";
 import { synthBed } from "../noise.js";
 import { loadPitchWorklet } from "../dsp/fx.js";
+import { ride } from "../dsp/knob.js";
 
 // How far ahead to schedule, and how often to wake. The window has to comfortably
 // exceed the timer's worst-case lateness or a note lands in the past and Web
 // Audio fires it immediately, which is audible as a flam.
 const LOOKAHEAD = 0.35;
 const TICK_MS = 60;
-// Knob-walk re-arm chunk. Long enough that the per-chunk cost is trivial, short
+// Shortest re-arm span. Long enough that the per-span cost is trivial, short
 // enough that a feedback throw is repaired within a musical moment.
 const CHUNK = 1.5;
-// Voice-internal walks (the stab band-pass, the pad cutoff) are written in one
-// go because voices.js owns those params and does not hand them back. An hour is
-// not forever; see `horizonEndsAt` on the returned engine.
-const VOICE_HORIZON = 3600;
+// A span also has to hold several of its own steps, or the re-arm rate replaces
+// the walk's rate: the pad walks at 0.05 Hz, and re-arming that every 1.5 s would
+// hand it a new random cutoff twenty times per period — a stutter instead of a
+// drift. Each walk therefore gets a span scaled to its own rate.
+const STEPS_PER_SPAN = 4;
+const spanFor = (rate) => Math.max(CHUNK, STEPS_PER_SPAN / rate);
 
 export function createEngine(ctx, opts = {}) {
   const {
@@ -59,7 +62,9 @@ export function createEngine(ctx, opts = {}) {
 
   const rig = buildRig(ctx, DUB_RIG, { random: irRng.next });
   const riddim = makeRiddim({ rng: noteRng, tonic, octave, progression, pattern, barsPerChord: 16 });
-  const voices = makeVoices(ctx, { rng: noteRng, seconds: VOICE_HORIZON, beat: BEAT });
+  // No `seconds`: a player does not know its length, so the walks are armed
+  // below in spans instead of once at construction.
+  const voices = makeVoices(ctx, { rng: noteRng, beat: BEAT });
   const ch = (name) => rig.mix.channel(name).input;
 
   // One persistent voice per part, retriggered — never a graph per note.
@@ -74,10 +79,20 @@ export function createEngine(ctx, opts = {}) {
     stabB: voices.stab(ch("stabB"), { cutoff: 2000, pan: 0.2 }),
     stabC: voices.stab(ch("stabC"), { cutoff: 2600 }),
   };
-  voices.pad(ch("pad"), riddim.stabChord(0).map((hz) => hz / 2));
+  const pad = voices.pad(ch("pad"), riddim.stabChord(0).map((hz) => hz / 2));
 
   const bed = synthBed(ctx, { type: noiseType, rng: noteRng, gain: 1, hpf: 900 });
   bed.output.connect(ch("noise"));
+
+  // The transport's own gain, and the only thing that can actually make this
+  // graph silent. Muting channels cannot: dsp/mixer.js wires sends post-fader
+  // and PRE-mute on purpose, because a muted channel whose echo keeps ringing is
+  // the dub drop-out (§7.4). The echoes then self-feed at 0.42-0.52 with
+  // saturation in the loop, so they sustain rather than decay, and the shimmer
+  // is a feedback loop of its own. Stopping the scheduler leaves all of that
+  // running. So stop() fades this to zero and suspends the context.
+  const out = ctx.createGain();
+  rig.output.connect(out);
 
   // §2's rates, derived the same way render.mjs derives them.
   const WALK_RATE = (2 / BEAT) * (1 + 0.0224);   // 4.26 Hz at 125 BPM
@@ -89,6 +104,24 @@ export function createEngine(ctx, opts = {}) {
   ];
   for (const [bus] of WALKS) rig.fx[bus].driftTone({ rate: DRIFT_RATE, centre: 2750, depth: 2250 });
 
+  // Every walk in the rig, each with its own rate and therefore its own span.
+  // `key` is what the UI names when a hand takes the parameter.
+  const walkers = [
+    ...WALKS.map(([bus, range]) => ({
+      key: `${bus}.feedback`, rate: WALK_RATE, armedUntil: 0,
+      arm: (start, seconds) => rig.fx[bus].rideFeedback({ rng: knobRng, seconds, rate: WALK_RATE, start: t0 + start, ...range }),
+    })),
+    {
+      key: "echoC.time", rate: 1 / BEAT, armedUntil: 0,
+      arm: (start, seconds) => rig.fx.echoC.warpTime({ rng: knobRng, seconds, rate: 1 / BEAT, low: 0.55, high: 0.85, start: t0 + start }),
+    },
+    ...[["stabA", parts.stabA], ["stabB", parts.stabB], ["stabC", parts.stabC], ["pad", pad]]
+      .flatMap(([name, v]) => (v.walks ?? []).map((w) => ({
+        key: `${name}.filter`, rate: w.rate, armedUntil: 0,
+        arm: (start, seconds) => armVoiceWalks(v, { rng: knobRng, start: t0 + start, seconds }),
+      }))),
+  ];
+
   // Params the hand is currently on. A held param is skipped by the re-armer, so
   // the walk keeps running in the model while the fader wins at the output — and
   // releasing hands it straight back at the next chunk.
@@ -96,7 +129,6 @@ export function createEngine(ctx, opts = {}) {
 
   let t0 = 0;                 // audio time the performance began
   let bar = 0;                // next bar to schedule
-  let chunk = 0;              // next walk chunk to arm, in performance time
   let plan = null;            // the endless section generator
   let nextSection = null;     // pulled but not yet applied
   let live = [];              // sections already applied, for reporting
@@ -105,14 +137,17 @@ export function createEngine(ctx, opts = {}) {
 
   const now = () => ctx.currentTime - t0;   // performance time
 
-  function armWalks(from, seconds) {
-    for (const [bus, range] of WALKS) {
-      if (held.has(`${bus}.feedback`)) continue;
-      rig.fx[bus].rideFeedback({ rng: knobRng, seconds, rate: WALK_RATE, start: t0 + from, ...range });
-    }
-    if (!held.has("echoC.time")) {
-      // The one LFO §2 beat-syncs, at the 1/4 it names.
-      rig.fx.echoC.warpTime({ rng: knobRng, seconds, rate: 1 / BEAT, low: 0.55, high: 0.85, start: t0 + from });
+  // Keep every walk armed past the horizon. A walk the hand is holding is not
+  // re-armed — but its cursor is dragged forward anyway, so releasing it resumes
+  // from now instead of trying to schedule a backlog into the past.
+  function armWalks(horizon) {
+    for (const w of walkers) {
+      if (held.has(w.key)) { w.armedUntil = Math.max(w.armedUntil, horizon); continue; }
+      while (w.armedUntil < horizon) {
+        const span = spanFor(w.rate);
+        w.arm(w.armedUntil, span);
+        w.armedUntil += span;
+      }
     }
   }
 
@@ -151,7 +186,7 @@ export function createEngine(ctx, opts = {}) {
     }
 
     while (bar * BAR < horizon) scheduleBar(bar++);
-    while (chunk < horizon) { armWalks(chunk, CHUNK); chunk += CHUNK; }
+    armWalks(horizon);
   }
 
   return {
@@ -160,10 +195,7 @@ export function createEngine(ctx, opts = {}) {
     get state() { return state; },
     get time() { return state === "stopped" ? 0 : now(); },
     get sections() { return live; },
-    get output() { return rig.output; },
-    // Voice-internal walks are written once, so the engine is honest about how
-    // long it is good for rather than claiming an endlessness it does not have.
-    get horizonEndsAt() { return VOICE_HORIZON; },
+    get output() { return out; },
 
     // The shimmer's octave is a real pitch shift; in a browser that can be the
     // phase-vocoder worklet instead of the granular fallback. Must run before
@@ -171,11 +203,10 @@ export function createEngine(ctx, opts = {}) {
     async start() {
       if (state === "running") return this;
       if (ctx.state === "suspended") await ctx.resume();
-      // stop() silences the desk, so a restart has to hand the channels back to
-      // the plan before the first section's gestures land on them.
-      for (const name of Object.keys(DUB_RIG.channels)) rig.mix.mute(name, false, ctx.currentTime, 0.02);
+      ride(out.gain, 1, ctx.currentTime, 0.05);
       t0 = ctx.currentTime + 0.12;      // a beat of slack so the first bar is not late
-      bar = 0; chunk = 0; live = [];
+      bar = 0; live = [];
+      for (const w of walkers) w.armedUntil = 0;
       plan = sections({ rng: planRng, spec: DUB_RIG });
       nextSection = plan.next().value;
       state = "running";
@@ -184,14 +215,17 @@ export function createEngine(ctx, opts = {}) {
       return this;
     },
 
+    // Fade out, then suspend. The fade covers the wet tails the mixer is designed
+    // NOT to mute; suspending then costs nothing to hold, keeps the persistent
+    // voices intact (rebuilding them is what this engine exists to avoid), and
+    // freezes the clock so a restart is not chasing elapsed time.
     stop() {
       if (timer) clearInterval(timer);
       timer = null;
       state = "stopped";
-      // Silence the desk rather than tearing the graph down — the voices are
-      // persistent by design and rebuilding them is the thing this engine
-      // exists to avoid.
-      for (const name of Object.keys(DUB_RIG.channels)) rig.mix.mute(name, true, ctx.currentTime, 0.08);
+      const FADE = 0.12;
+      ride(out.gain, 0, ctx.currentTime, FADE);
+      setTimeout(() => { if (state === "stopped" && ctx.state === "running") ctx.suspend(); }, FADE * 1000 + 60);
       return this;
     },
 

@@ -31,7 +31,12 @@ export function ride(param, to, at, seconds = 0.25) {
 // Koçer's measured settings (§2): feedback amount driven at rate 4.26 Hz;
 // delay time driven at a 1/4-note rate with 100% smoothing and its range
 // clamped to 40–80% to keep the pitch artefacts from running away.
-export function randomWalk(param, { rng, rate, min, max, smooth = 1, start = 0, seconds }) {
+// `from` is for a walk that is being re-armed rather than started: an endless
+// player schedules a walk in spans, and without it every span boundary would
+// jump the parameter to a fresh random value. Given the value the walk is
+// actually sitting at, the first move ramps out of it instead, so the seam is
+// inaudible. A one-shot walk (the whole-render case) omits it and is unchanged.
+export function randomWalk(param, { rng, rate, min, max, smooth = 1, start = 0, seconds, from }) {
   if (!(rate > 0)) throw new Error("randomWalk needs a positive rate");
   if (!(seconds > 0)) throw new Error("randomWalk needs a positive duration");
   const step = 1 / rate;
@@ -40,7 +45,13 @@ export function randomWalk(param, { rng, rate, min, max, smooth = 1, start = 0, 
 
   param.cancelScheduledValues(start);
   let value = rng.float(min, max);
-  param.setValueAtTime(value, start);
+  if (from === undefined) {
+    param.setValueAtTime(value, start);
+  } else {
+    param.setValueAtTime(from, start);
+    if (glide > 0) param.linearRampToValueAtTime(value, Math.min(start + glide, end));
+    else param.setValueAtTime(value, start);
+  }
 
   let events = 1;
   for (let t = start + step; t < end; t += step) {

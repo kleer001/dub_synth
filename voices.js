@@ -24,11 +24,33 @@
 // The consequence to respect: one voice cannot overlap itself. At this genre's
 // tempo and decay times nothing does — the closest call is the shaker at 16ths
 // (120 ms apart, 55 ms decay).
+//
+// Two voices run a slow seeded walk on their own filter — the stab's band-pass
+// (§5's step for taking the harshness off) and the pad's cutoff, which is the
+// pad's only motion (§7.7). A render knows how long it is and arms those once.
+// A player does not, so each such voice also publishes its walk as a `walks`
+// descriptor and `armVoiceWalks` re-arms it in spans. Without that the walks are
+// only as long as whatever `seconds` they were built with, and the instrument
+// quietly stops moving when it runs out.
 
 import { bitCurve, satCurve, whiteNoise } from "./core/dsp.js";
 import { randomWalk } from "./dsp/knob.js";
 
 const FLOOR = 0.0001;
+
+// Re-arm a voice's own walks over [start, start+seconds). `from` keeps the seam
+// continuous; see dsp/knob.js.
+export function armVoiceWalks(voice, { rng, start = 0, seconds }) {
+  let n = 0;
+  for (const w of voice?.walks ?? []) {
+    randomWalk(w.param, {
+      rng, rate: w.rate, min: w.min, max: w.max, smooth: 1,
+      start, seconds, from: w.param.value,
+    });
+    n++;
+  }
+  return n;
+}
 
 // Retrigger an envelope on a persistent gain. cancelScheduledValues keeps a hit
 // that lands during a previous tail from summing with it.
@@ -150,11 +172,13 @@ export function makeVoices(ctx, { rng, seconds, beat = 0.48 } = {}) {
 
       // The band-pass cutoff randomised by a low-Hz LFO — the step the Basic
       // Channel recipe uses to take the harshness off the stab (§5).
+      const walks = [{ param: bp.frequency, rate: 0.35, min: cutoff * 0.7, max: cutoff * 1.6 }];
       if (rng && seconds) {
         randomWalk(bp.frequency, { rng, rate: 0.35, min: cutoff * 0.7, max: cutoff * 1.6, smooth: 1, seconds });
       }
 
       return {
+        walks,
         at(t, hzs, { peak = 0.5, dur = 0.16 } = {}) {
           oscs.forEach((v, i) => {
             if (i < hzs.length) { v.o.frequency.setValueAtTime(hzs[i], t); v.g.setValueAtTime(1 / hzs.length, t); }
@@ -235,10 +259,11 @@ export function makeVoices(ctx, { rng, seconds, beat = 0.48 } = {}) {
       lp.connect(dirty).connect(sat).connect(sum);
       sum.connect(g).connect(dest);
 
+      const walks = [{ param: lp.frequency, rate: 0.05, min: 320, max: 1500 }];
       if (rng && seconds) {
         randomWalk(lp.frequency, { rng, rate: 0.05, min: 320, max: 1500, smooth: 1, seconds });
       }
-      return { cutoff: lp.frequency, level: g.gain };
+      return { walks, cutoff: lp.frequency, level: g.gain };
     },
   };
 }
