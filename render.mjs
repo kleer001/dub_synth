@@ -99,14 +99,34 @@ if (HEADROOM) rig.master.neutral();
 rig.output.connect(ctx.destination);
 
 // The hand on the knobs, running the whole length (§2).
+//
+// §2's feedback figure is 4.26 Hz, measured off one Ableton session, and §2 is
+// emphatic that it is NOT synchronised — the walk and the tone drift sit at a
+// ratio near 39 so their combined motion never repeats audibly. Held as a bare
+// constant that intent survives only at one tempo: at 125 BPM 4.26 Hz is an
+// eighth note 2.2% sharp, slipping a whole cycle every ~5.6 bars, which is what a
+// hand riding in time with a track does; at 144 it is 11% FLAT of an eighth and
+// means something else entirely. So the rate is anchored to the eighth and
+// detuned off it. The detune has to stay an awkward fraction — a round one would
+// relock the two LFOs periodically and cost exactly the property §2 asks for.
+const WALK_DETUNE = 0.0224;
+const WALK_RATE = (2 / BEAT) * (1 + WALK_DETUNE);   // 4.26 Hz at 125 BPM
+
+// The tone drift stays absolute. Its 9.1-second period is below the band where
+// tempo means anything — it is heard as breathing, not as placement — and pinning
+// it to the grid would only risk making it commensurable with the walk above.
+const DRIFT_RATE = 0.11;
+
 // The walk ranges are per-bus because the delay TIME sets how much feedback a bus
 // can carry: the shorter the echo, the denser the same feedback figure sounds.
 for (const [bus, cfg] of [["echoA", { min: 0.28, max: 0.62 }], ["echoB", { min: 0.20, max: 0.42 }], ["echoC", { min: 0.30, max: 0.66 }]]) {
-  rig.fx[bus].rideFeedback({ rng: knobRng, seconds: SECONDS, rate: 4.26, ...cfg });
-  rig.fx[bus].driftTone({ rate: 0.11, centre: 2750, depth: 2250 });
+  rig.fx[bus].rideFeedback({ rng: knobRng, seconds: SECONDS, rate: WALK_RATE, ...cfg });
+  rig.fx[bus].driftTone({ rate: DRIFT_RATE, centre: 2750, depth: 2250 });
 }
 // One echo runs time-based with a modulated delay time — the pitch artefacts (§2).
-rig.fx.echoC.warpTime({ rng: knobRng, seconds: SECONDS, rate: 1 / BAR, low: 0.55, high: 0.85 });
+// This is the one LFO the source beat-syncs, and it names the rate: a 1/4 with
+// 100% smoothing, its range clamped to 40-80%. A quarter note, not a bar.
+rig.fx.echoC.warpTime({ rng: knobRng, seconds: SECONDS, rate: 1 / BEAT, low: 0.55, high: 0.85 });
 
 const gestureCount = applyAll(rig, sections.flatMap((s) => s.gestures));
 

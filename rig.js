@@ -79,7 +79,7 @@ export const DUB_RIG = {
   // `node dub_synth/render.mjs --headroom` after any change to channels, buses,
   // returns or voices, and paste what it suggests. Getting this wrong is what
   // made the mix read hot when the rig grew from six channels to ten.
-  master: 0.571,
+  master: 0.526,
   masterBus: {},
 };
 
