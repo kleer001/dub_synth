@@ -65,6 +65,10 @@ const OUT = argv.out ?? "/tmp/dub.wav";
 const NOISE = argv.noise ?? "synth";
 const NOISE_TYPE = argv.type ?? "static";
 const KICK = argv.kick ?? "synth";
+// A/B override for the measured trim. DUB_RIG.master is the committed number;
+// this exists so a sweep can re-measure per variant without editing the rig
+// between runs. It is never the way a trim gets chosen — --headroom is.
+const TRIM = argv.trim === undefined ? null : Number(argv.trim);
 const HEADROOM = Boolean(argv.headroom);
 const STEMS = Boolean(argv.stems);
 const RAW = Boolean(argv.raw);
@@ -97,7 +101,7 @@ if (argv.plan) {
 }
 
 const ctx = new nwa.OfflineAudioContext(2, Math.ceil(SECONDS * SR), SR);
-const rig = buildRig(ctx, DUB_RIG, { random: irRng.next });
+const rig = buildRig(ctx, TRIM === null ? DUB_RIG : { ...DUB_RIG, master: TRIM }, { random: irRng.next });
 // --headroom reads the TRUE pre-master level, so the master chain is flattened
 // out of the way first. Measuring through your own processing tells you nothing.
 if (HEADROOM) rig.master.neutral();
@@ -270,8 +274,11 @@ console.log(`  noise         ${bed.describe()}`);
 console.log(`  kick          ${kickEntry ? `${kickEntry.name} (${kickEntry.ms} ms, ${Math.round(kickEntry.lowShare*100)}% under 350 Hz)` : "synthesized"}`);
 console.log(`  pre-master    peak ${beforeMaster.peakDb.toFixed(2)} dBFS, crest ${beforeMaster.crest.toFixed(2)} dB`);
 if (mastered) {
-  console.log(`  glue          ${mastered.glue.maxReductionDb.toFixed(2)} dB max reduction, ${mastered.glue.makeupDb.toFixed(2)} dB makeup`);
-  console.log(`  limiter       ${mastered.limit.maxReductionDb.toFixed(2)} dB max reduction`);
+  // Max is one transient; AVG is whether compression is doing the mixing. Reading
+  // the max alone makes a glue that touches a single peak look like a glue that
+  // is squashing the record.
+  console.log(`  glue          ${mastered.glue.avgReductionDb.toFixed(2)} dB avg / ${mastered.glue.maxReductionDb.toFixed(2)} dB max, ${mastered.glue.makeupDb.toFixed(2)} dB makeup`);
+  console.log(`  limiter       ${mastered.limit.avgReductionDb !== undefined ? `${mastered.limit.avgReductionDb.toFixed(2)} dB avg / ` : ""}${mastered.limit.maxReductionDb.toFixed(2)} dB max`);
 }
 console.log(`  peak          ${dB(s.peak).toFixed(2)} dBFS`);
 if (mastered) console.log(`  true peak     ${mastered.truePeakDb.toFixed(2)} dBFS`);
