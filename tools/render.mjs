@@ -5,14 +5,18 @@
 // does not go in. This harness enforces that end to end — it builds the rig,
 // plans a performance, lays the riddim under it, and renders the result.
 //
-//   node dub_synth/render.mjs [--seconds=300] [--seed=7] [--noise=synth|sample]
-//                             [--type=static|vinyl|soundscape] [--out=/tmp/dub.wav]
+//   node dub_synth/render.mjs [--seconds=300] [--seed=7] [--bpm=125] [--kick=synth]
+//                             [--noise=synth|sample] [--type=static|vinyl|soundscape]
+//                             [--out=/tmp/dub.wav]
 //                             [--plan]      print the section plan and exit
 //                             [--headroom]  measure the pre-master level and print
 //                                           the master trim the rig should carry
 //                             [--raw]       skip the bounce-time mastering pass
-//                             [--stems]     solo each channel and each bus in turn
-//                                           and report what it contributes
+//                             [--trim=N]    A/B override for the master trim; the way
+//                                           a trim gets chosen is --headroom
+//
+// Soloing a channel or a bus is a different harness: dub_synth/stems.mjs, or
+// `npm run stems`. It re-renders once per solo, which this file does not do.
 //
 // Levels are machinery here, not taste. node-web-audio-api's DynamicsCompressor
 // does not limit — it inflates — so nothing in the graph relies on it: the master
@@ -70,7 +74,6 @@ const KICK = argv.kick ?? "synth";
 // between runs. It is never the way a trim gets chosen — --headroom is.
 const TRIM = argv.trim === undefined ? null : Number(argv.trim);
 const HEADROOM = Boolean(argv.headroom);
-const STEMS = Boolean(argv.stems);
 const RAW = Boolean(argv.raw);
 const SR = 48000;
 

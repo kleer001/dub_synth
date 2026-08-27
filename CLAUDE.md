@@ -25,7 +25,9 @@ npm test                          # node --test test/ — pure logic, no audio c
 ```
 
 `tools/render.mjs` also takes `--noise=synth|sample --type=static|vinyl|soundscape --bpm=N
---kick=<name> --raw`. The desk takes `?seed=&bpm=&type=&worklet=0` as URL parameters.
+--kick=<name> --raw --trim=N`, where `--trim` is a per-render override of `DUB_RIG.master` for
+A/B sweeps and `npm run headroom` is what a trim is chosen with. Soloing is `tools/stems.mjs`,
+not a flag on the renderer. The desk takes `?seed=&bpm=&type=&worklet=0` as URL parameters.
 
 ## The specification is a document, not taste
 

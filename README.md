@@ -66,10 +66,13 @@ npm run render -- --seconds=300 --seed=7 --out=/tmp/dub.wav
 | `npm run headroom` | measure the master trim the rig should carry |
 | `npm run stems` | solo every channel and bus, report each contribution |
 | `npm run scan-kicks` | re-index a sample library for the kick shelf |
+| `npm run scan-samples` | re-index the same library for the noise layer |
 | `npm test` | pure logic, no audio context |
 
 `render` also takes `--bpm`, `--kick=<name>`, `--noise=synth|sample`, `--type=static|vinyl|soundscape`,
-and `--raw` to skip the bounce-time mastering pass.
+and `--raw` to skip the bounce-time mastering pass. `--trim=N` overrides `DUB_RIG.master` for one
+render, so a sweep can re-measure per variant without editing the rig — `headroom` is what a trim
+is chosen with.
 
 The desk takes its settings as URL parameters: `?seed=7&bpm=125&type=vinyl`.
 
